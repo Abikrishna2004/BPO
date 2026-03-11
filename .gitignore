@@ -1,0 +1,22 @@
+# Virtual Environment
+.venv/
+venv/
+env/
+ENV/
+
+# Database
+*.db
+
+# Node modules
+node_modules/
+dist/
+build/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# OS
+.DS_Store
+Thumbs.db
