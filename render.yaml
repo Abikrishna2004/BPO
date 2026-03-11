@@ -1,0 +1,21 @@
+services:
+  # Backend API
+  - type: web
+    name: bpo-backend
+    env: python
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        value: sqlite:///./bpo_system.db # Note: SQLite will reset on restart on Render's free tier. Use a managed DB for persistence.
+      - fromGroup: bpo-secrets
+
+  # Frontend Static Site
+  - type: web
+    name: bpo-frontend
+    env: static
+    buildCommand: cd frontend && npm install && npm run build
+    publishPath: frontend/dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://bpo-backend.onrender.com/api # Replace with your actual backend URL after first deploy
