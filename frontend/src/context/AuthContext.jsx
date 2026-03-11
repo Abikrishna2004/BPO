@@ -11,7 +11,7 @@ export const AuthProvider = ({ children }) => {
 
     // Configure axios base URL
     const api = axios.create({
-        baseURL: 'http://localhost:8000/api',
+        baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000/api',
     });
 
     // Add token to requests if exists
