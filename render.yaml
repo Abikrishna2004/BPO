@@ -18,4 +18,4 @@ services:
     publishPath: frontend/dist
     envVars:
       - key: VITE_API_URL
-        value: https://bpo-backend.onrender.com/api # Replace with your actual backend URL after first deploy
+        value: https://bpo-mvz9.onrender.com/api
