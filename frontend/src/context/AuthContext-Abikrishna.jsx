@@ -23,6 +23,18 @@ export const AuthProvider = ({ children }) => {
         return config;
     });
 
+    // Handle 401 responses globally
+    api.interceptors.response.use(
+        (response) => response,
+        (error) => {
+            if (error.response && error.response.status === 401) {
+                localStorage.removeItem('token');
+                setUser(null);
+            }
+            return Promise.reject(error);
+        }
+    );
+
     useEffect(() => {
         const checkUser = async () => {
             const token = localStorage.getItem('token');
@@ -54,7 +66,15 @@ export const AuthProvider = ({ children }) => {
         return userResponse.data;
     };
 
-    const logout = () => {
+    const logout = async () => {
+        const token = localStorage.getItem('token');
+        if (token) {
+            try {
+                await api.post('/logout');
+            } catch (error) {
+                console.error("Logout error", error);
+            }
+        }
         localStorage.removeItem('token');
         setUser(null);
     };

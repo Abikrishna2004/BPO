@@ -28,12 +28,27 @@ class User(Base):
     salary = Column(Integer, default=50000) # Base salary
     performance_score = Column(Integer, default=0) # 0-100
     display_name = Column(String, default=None)
+    profile_image = Column(String, nullable=True) # New: avatar URL or base64
     created_at = Column(DateTime, default=datetime.now)
     
     calls = relationship("Call", back_populates="agent")
     attendance = relationship("Attendance", back_populates="user")
     tasks = relationship("Task", back_populates="agent")
     achievements = relationship("Achievement", back_populates="user")
+    profile_requests = relationship("ProfileRequest", back_populates="user")
+
+
+class ProfileRequest(Base):
+    __tablename__ = "profile_requests"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    new_username = Column(String, nullable=True)
+    new_email = Column(String, nullable=True)
+    status = Column(String, default="pending") # pending, approved, rejected
+    created_at = Column(DateTime, default=datetime.now)
+
+    user = relationship("User", back_populates="profile_requests")
 
 
 
