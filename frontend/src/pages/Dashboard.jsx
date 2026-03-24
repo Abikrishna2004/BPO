@@ -720,7 +720,7 @@ export default function Dashboard() {
                                                                     return (
                                                                         <a
                                                                             key={idx}
-                                                                            href={`http://localhost:8000/${path}`}
+                                                                            href={`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'}/${path}`}
                                                                             target="_blank"
                                                                             rel="noopener noreferrer"
                                                                             className="group flex items-center gap-3 px-3 py-2 bg-[#1a1a1a] hover:bg-blue-500/10 border border-white/10 hover:border-blue-500/30 rounded-lg transition-all"
