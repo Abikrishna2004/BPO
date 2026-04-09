@@ -21,9 +21,12 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Jourvix BPO System", version="1.0.0", lifespan=lifespan)
 
-# Create uploads dir if not exists
-if not os.path.exists("uploads"):
-    os.makedirs("uploads")
+# Create uploads dir if not exists (handling potentially read-only serverless filesystems)
+try:
+    if not os.path.exists("uploads"):
+        os.makedirs("uploads")
+except Exception as e:
+    print(f"Warning: Could not create uploads directory: {e}")
 
 # CORS
 origins = settings.CORS_ORIGINS.split(",")

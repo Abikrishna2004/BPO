@@ -27,12 +27,15 @@ client = MongoClient(
 )
 db = client[settings.DATABASE_NAME]
 
-# Test connection once at module load level to surface errors immediately
-try:
-    client.admin.command('ping')
-    print("MongoDB Atlas: Connection Successful")
-except Exception as e:
-    print(f"MongoDB Atlas: Connection Failed on Startup: {e}")
+# Test connection once at module load level to surface errors immediately (if URL provided)
+if settings.MONGODB_URL:
+    try:
+        client.admin.command('ping')
+        print("MongoDB Atlas: Connection Successful")
+    except Exception as e:
+        print(f"MongoDB Atlas: Connection Failed on Startup: {e}")
+else:
+    print("MongoDB Atlas: URL NOT CONFIGURED (Check Environment Variables)")
 
 def get_db():
     return db
