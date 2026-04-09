@@ -23,11 +23,14 @@ const WorkforceAnalyticsHUD = ({
     isAdminView = false 
 }) => {
     const efficiency = perfData?.efficiency || 0;
+    const performanceScore = targetUser?.performance_score || perfData?.performance_score || 0;
     const completed = perfData?.completed_tasks || 0;
     const pending = tasksData.filter(t => t.status === 'pending').length;
     
-    const progress = Math.round((efficiency % 1) * 100);
+    // Level is the floor of efficiency
     const level = Math.floor(efficiency);
+    // Progress is the XP remainder toward the next 100
+    const progress = performanceScore % 100;
 
     return (
         <div className="flex flex-col gap-6 w-full font-sans text-white max-w-[1400px] mx-auto animate-in fade-in zoom-in-95 duration-1000">

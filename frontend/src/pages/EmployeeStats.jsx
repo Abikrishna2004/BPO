@@ -109,10 +109,10 @@ export default function EmployeeStats() {
 
         setUpdatingRole(true);
         try {
-            await api.put(`/users/${selectedAgentId}/role`, { role: selectedRole });
+            await api.put(`/users/${selectedAgentId}/promote`, { role: selectedRole });
 
             // Optimistic Update
-            setAgents(prev => prev.map(a => a.id === parseInt(selectedAgentId) ? { ...a, role: selectedRole } : a));
+            setAgents(prev => prev.map(a => a.id === selectedAgentId ? { ...a, role: selectedRole } : a));
 
             alert(`Role successfully updated to: ${selectedRole}`);
             setSelectedAgentId(''); // Reset selection
@@ -131,13 +131,12 @@ export default function EmployeeStats() {
 
         setUpdatingSalary(true);
         try {
-            await api.put(`/users/${selectedAgentId}/salary`, { salary: parseFloat(salaryInput) });
+            await api.put(`/users/${selectedAgentId}/promote`, { salary: parseFloat(salaryInput) });
 
             // Optimistic Update
-            setAgents(prev => prev.map(a => a.id === parseInt(selectedAgentId) ? { ...a, salary: parseFloat(salaryInput) } : a));
+            setAgents(prev => prev.map(a => a.id === selectedAgentId ? { ...a, salary: parseFloat(salaryInput) } : a));
 
             alert(`Salary updated to: ₹ ${salaryInput} LPA`);
-            // Keep selection but clear input or keep it? Keep it showing current.
         } catch (error) {
             console.error("Failed to update salary", error);
             alert("Failed to update salary.");
@@ -149,7 +148,7 @@ export default function EmployeeStats() {
     // Auto-fill salary when agent selected
     useEffect(() => {
         if (selectedAgentId) {
-            const agent = agents.find(a => a.id === parseInt(selectedAgentId));
+            const agent = agents.find(a => a.id === selectedAgentId);
             if (agent) {
                 setSalaryInput(agent.salary || '');
             }
@@ -165,7 +164,7 @@ export default function EmployeeStats() {
         {
             title: "Agent (Core Operations)",
             icon: UserCheck,
-            roles: ["Agent", "Senior Agent", "Manager"]
+            roles: ["Agent", "Senior Agent", "Lead Agent", "Supervisor", "Manager"]
         },
         {
             title: "Sales (Inside Sales / BPO)",
@@ -429,10 +428,11 @@ const calculateMetrics = (agent) => {
     // Performance score is directly from backend's performance_score (XP)
     const performanceScore = agent.performance_score || 0;
     
-    // Efficiency is level + progress/100 (e.g., 25.95 means Level 25, 95% progress)
-    const efficiency = agent.efficiency || 0;
+    // Efficiency is level (e.g., 26.0)
+    // Progress is XP % 100
+    const efficiency = agent.efficiency || 25;
     const level = Math.floor(efficiency);
-    const progress = Math.round((efficiency % 1) * 100);
+    const progress = performanceScore % 100;
 
     return { performanceScore, efficiency, progress, level };
 }

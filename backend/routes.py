@@ -30,47 +30,49 @@ def fix_ids(docs):
 # Pymongo is synchronous, removal of 'await' for database operations
 def calculate_efficiency(db, user_id: str) -> float:
     """
-    Operational Prestige XP Engine:
-    - Base Level: 25
-    - Threshold: 1500 XP per level
-    - Tasks & Penalties integrated via 'performance_score'
-    - Attendance Sync: +10 XP Present | -50 XP Absent
-    - Streaks (3+ days): Tiered bonuses
+    Efficiency Logic:
+    - Base Efficiency: 25.0
+    - Level Up: +1.0 Efficiency for every 100 XP
+    - XP Source: performance_score
     """
     u_id = str(user_id)
     user = db.users.find_one({"_id": ObjectId(u_id)})
     if not user: return 25.0
     
-    # 1. Missions & Performance Baseline
     total_xp = user.get("performance_score", 0)
     
-    # 2. Attendance Sync Log (Process chronological streaks)
-    att_history = list(db.attendance.find({"user_id": u_id}).sort("date", 1))
-    streak = 0
-    for att in att_history:
-        status = str(att.get("status", "absent")).lower()
-        if status == "present":
-            total_xp += 10
-            streak += 1
-            if streak >= 3: total_xp += 15 # Tier 1 Alpha Streak
-            if streak >= 5: total_xp += 25 # Tier 2 Delta Streak
-        else:
-            total_xp -= 50 # Multi-Node Sync Failure (Absent)
-            streak = 0
+    # Efficiency starts at 25 and increases by 1 per 100 XP
+    efficiency = 25.0 + (total_xp // 100)
+    
+    return float(efficiency)
 
-    # 3. Calibration Matrix
-    xp_per_level = 1500.0
-    base_level = 25
-    
-    # Precise Level & Mission Progress Mapping
-    level_delta = total_xp // xp_per_level
-    current_level = int(base_level + level_delta)
-    
-    progress_xp = total_xp % xp_per_level
-    percent_progress = (progress_xp / xp_per_level) * 100.0
-    
-    return float(round(current_level + (percent_progress / 100.0), 4))
+def get_next_role(current_role: str):
+    hierarchy = ["agent", "senior_agent", "lead_agent", "supervisor", "manager"]
+    try:
+        idx = hierarchy.index(current_role.lower())
+        if idx < len(hierarchy) - 1:
+            return hierarchy[idx + 1]
+    except ValueError:
+        return "agent"
+    return None
 
+async def check_and_apply_automatic_promotion(db, user):
+    efficiency = calculate_efficiency(db, str(user["_id"]))
+    
+    # Automatic Promotion Thresholds (Example: Every 5 levels after 30)
+    if efficiency >= 30 and user.get("role") != "admin":
+        current_role = user.get("role", "agent")
+        next_role = get_next_role(current_role)
+        
+        level_milestone = int(efficiency)
+        last_promo_level = user.get("last_promotion_level", 25)
+        
+        if level_milestone >= last_promo_level + 5 and next_role:
+            db.users.update_one(
+                {"_id": user["_id"]},
+                {"$set": {"role": next_role, "last_promotion_level": level_milestone}, "$inc": {"salary": 5000}}
+            )
+            await create_log(db, f"SYSTEM_AUTO_PROMO: {user['username']} promoted to {next_role.upper()} for reaching Efficiency {level_milestone}", user_id=str(user["_id"]))
 
 class UserCreate(BaseModel):
     username: str
@@ -208,8 +210,6 @@ async def register(user: UserCreate, db = Depends(get_db), current_user = Depend
     await create_log(db, f"New Agent Registered: {user.username}", user_id=str(res.inserted_id))
     return fix_id(new_user)
 
-# Consolidated identity retrieval is handled below at line 270
-
 @router.put("/users/profile", response_model=UserResponse)
 async def update_profile(data: dict, db = Depends(get_db), current_user = Depends(auth.get_current_user)):
     u_id = current_user["id"]
@@ -239,13 +239,32 @@ async def mark_attendance(att: dict, db = Depends(get_db), current_user = Depend
     if current_user["role"] != "admin": raise HTTPException(status_code=403)
     today = datetime.now().strftime("%Y-%m-%d")
     target_user = db.users.find_one({"_id": ObjectId(att["user_id"])})
+    if not target_user: raise HTTPException(status_code=404)
+    
     existing = db.attendance.find_one({"user_id": att["user_id"], "date": today})
     if existing:
         db.attendance.update_one({"_id": existing["_id"]}, {"$set": {"status": att["status"], "marked_by": current_user["username"]}})
     else:
         db.attendance.insert_one({"user_id": att["user_id"], "status": att["status"], "date": today, "marked_by": current_user["username"]})
+        # Check for streak on new mark
+        if att["status"] == "present":
+            # Get last 10 records
+            history = list(db.attendance.find({"user_id": att["user_id"]}).sort("date", -1).limit(10))
+            present_streak = 0
+            for h in history:
+                if h["status"] == "present": present_streak += 1
+                else: break
+            
+            if present_streak > 0 and present_streak % 10 == 0:
+                db.users.update_one({"_id": target_user["_id"]}, {"$inc": {"performance_score": 5}})
+                await create_log(db, f"Attendance Streak! {target_user['username']} reached {present_streak} days (+5 XP)", user_id=att["user_id"])
     
     await create_log(db, f"Attendance: {target_user['username']} is now {att['status'].upper()}", user_id=att["user_id"])
+    
+    # Re-fetch user to check for auto-promotion after XP gain
+    updated_user = db.users.find_one({"_id": target_user["_id"]})
+    await check_and_apply_automatic_promotion(db, updated_user)
+    
     ret = db.attendance.find_one({"user_id": att["user_id"], "date": today})
     return fix_id(ret)
 
@@ -368,7 +387,7 @@ async def finish_task(task_id: str, completion: dict, db = Depends(get_db), curr
     if not task: raise HTTPException(status_code=404)
     
     now = datetime.now()
-    xp_gain = 5
+    xp_gain = 3 # New requirement: +3 XP per task
     is_late = False
     
     # Strict Deadline Analysis
@@ -379,7 +398,7 @@ async def finish_task(task_id: str, completion: dict, db = Depends(get_db), curr
             except: deadline = None
         
         if deadline and now.timestamp() > deadline.timestamp():
-            xp_gain = -15 # Operational Penalty
+            xp_gain = -10 # Adjusted Penalty
             is_late = True
             
     db.tasks.update_one({"_id": ObjectId(task_id)}, {
@@ -389,6 +408,10 @@ async def finish_task(task_id: str, completion: dict, db = Depends(get_db), curr
     })
     
     db.users.update_one({"_id": ObjectId(current_user["id"])}, {"$inc": {"performance_score": xp_gain}})
+    
+    # Re-fetch user explicitly to check for auto-promotion
+    updated_user = db.users.find_one({"_id": ObjectId(current_user["id"])})
+    await check_and_apply_automatic_promotion(db, updated_user)
     
     status_msg = "LATE SUBMISSION" if is_late else "SUCCESSFUL UPLOAD"
     await create_log(db, f"Task {status_msg}: {current_user['username']} finished '{task['title']}' ({xp_gain} XP)", user_id=current_user["id"])
