@@ -399,16 +399,16 @@ export default function Dashboard() {
         } catch (e) { console.error(e); }
     };
 
-    const promoteUser = async (user) => {
-        const newSalary = prompt(`Elevate ${user.username} - New Salary Package (LPA):`, user.salary);
-        const newRole = prompt(`Update Designation for ${user.username}:`, user.role);
+    const promoteUser = async (agent) => {
+        const newSalary = prompt(`Elevate ${agent.username} - New Salary Package (LPA):`, agent.salary);
+        const newRole = prompt(`Update Designation for ${agent.username}:`, agent.role);
         if (newSalary === null || newRole === null) return;
         
         try {
-            await api.put(`/users/${user.id}/promote`, { 
+            await api.put(`/users/${agent.id}/promote`, { 
                 salary: parseFloat(newSalary), 
                 role: newRole,
-                performance_score: user.performance_score + 10 // Award bonus points on promotion
+                performance_score: (agent.performance_score || 0) + 10 // Award bonus points on promotion
             });
             fetchAgents();
             alert("SYSTEM: Node Synchronized. Promotion applied successfully.");
@@ -1131,17 +1131,19 @@ export default function Dashboard() {
                                                                         <span className="text-2xl font-black text-white tracking-tighter leading-none">{Math.floor(agent.efficiency)}</span>
                                                                     </div>
                                                                     <div className="text-right">
-                                                                        <div className="flex items-center gap-1 justify-end">
-                                                                            <span className="text-[7px] font-black text-blue-500/60 uppercase tracking-widest">Next</span>
-                                                                            <span className="text-xs font-mono text-blue-400 font-bold">{Math.round((agent.efficiency % 1) * 100)}%</span>
+                                                                        <div className="flex flex-col items-end">
+                                                                            <span className="text-[8px] font-black text-blue-400/80 uppercase tracking-widest">XP: {agent.performance_score}</span>
+                                                                            <div className="flex items-center gap-1 mt-0.5">
+                                                                                <span className="text-[7px] font-black text-blue-500/60 uppercase tracking-widest">Next</span>
+                                                                                <span className="text-xs font-mono text-blue-400 font-bold">{Math.round(agent.performance_score % 100)}%</span>
+                                                                            </div>
                                                                         </div>
-                                                                        <div className="text-[6px] text-gray-700 font-mono tracking-tighter uppercase font-black">+3.5 PTS/TASK AVG</div>
                                                                     </div>
                                                                 </div>
                                                                 <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
                                                                     <motion.div 
                                                                         initial={{ width: 0 }}
-                                                                        animate={{ width: `${(agent.efficiency % 1) * 100}%` }}
+                                                                        animate={{ width: `${agent.performance_score % 100}%` }}
                                                                         className="h-full bg-gradient-to-r from-blue-600 to-blue-400 shadow-[0_0_10px_rgba(59,130,246,0.5)]"
                                                                     />
                                                                 </div>
@@ -1161,7 +1163,7 @@ export default function Dashboard() {
                                                             <button onClick={() => viewHistory(agent.id)} className="px-2 py-1 bg-blue-500/10 text-blue-400 border border-blue-500/30 rounded text-[9px] uppercase font-bold">History</button>
                                                             <div className="w-px h-6 bg-white/10 mx-1"></div>
                                                             <button 
-                                                                onClick={() => promoteUser(agent.id)} 
+                                                                onClick={() => promoteUser(agent)} 
                                                                 className={`px-2 py-1 bg-amber-500/10 text-amber-500 border border-amber-500/30 rounded text-[9px] uppercase font-bold ${agent.efficiency >= 50 ? 'animate-pulse bg-amber-500/20' : ''}`}
                                                             >
                                                                 Promote
