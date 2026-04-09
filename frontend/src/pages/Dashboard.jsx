@@ -153,7 +153,7 @@ export default function Dashboard() {
     const [reportSummary, setReportSummary] = useState("");
 
     useEffect(() => {
-        const socket = new WebSocket(import.meta.env.VITE_WS_URL || 'ws://localhost:8000/ws');
+        const socket = new WebSocket(import.meta.env.VITE_WS_URL || 'wss://bpo-rouge.vercel.app/ws');
 
         socket.onopen = () => {
             console.log('Connected to Realtime Stream');
@@ -238,7 +238,7 @@ export default function Dashboard() {
     const getAvatarUrl = (photo) => {
         if (!photo) return null;
         if (photo.startsWith('http')) return photo;
-        const baseUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8005';
+        const baseUrl = import.meta.env.VITE_BACKEND_URL || 'https://bpo-rouge.vercel.app';
         return photo.startsWith('uploads') ? `${baseUrl}/${photo}` : `${baseUrl}/uploads/${photo}`;
     };
 
