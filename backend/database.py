@@ -6,12 +6,12 @@ class Settings(BaseSettings):
     # This will read from .env if present
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding='utf-8', extra="ignore")
 
-    MONGODB_URL: str = "mongodb+srv://BPOUser:BPOUser@bpo.jgaltdc.mongodb.net/BPO?retryWrites=true&w=majority"
+    MONGODB_URL: str = ""
     DATABASE_NAME: str = "BPO"
-    SECRET_KEY: str = "supersecretkeywhichshouldbechanged"
+    SECRET_KEY: str = "change-me-in-production"
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
-    CORS_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    CORS_ORIGINS: str = "http://localhost:5173"
 
 import certifi
 import ssl
