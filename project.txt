@@ -1,0 +1,46 @@
+# PROJECT: JOURVIX BPO SYSTEM - MISSION CONTROL
+
+## 1. PROBLEM STATEMENT
+Traditional BPO (Business Process Outsourcing) management systems often suffer from high employee turnover, lack of motivation, and fragmented data tracking. Operations managers frequently struggle with:
+- Manual tracking of agent productivity and attendance.
+- Lack of immediate, visual performance feedback for agents.
+- Delays in financial rewards/bonuses for top performers.
+- Complicated, non-standardized promotion workflows.
+
+## 2. PROJECT OVERVIEW
+The Jourvix BPO System is a high-density, gamified operations management platform designed to transform workforce management into a "Mission Control" experience. It uses real-time data visualization and an automated XP-driven rewards engine to increase engagement, accuracy, and operational efficiency.
+
+## 3. CORE FUNCTIONALITIES
+- **Agent Personnel Management**: Full CRUD operations for agent registration, role assignment, and detailed profile tracking.
+- **Attendance Control**: Daily attendance marking system (Present/Absent) with automated status tracking.
+- **Task & Project Life-cycle**: Advanced assignment engine allowing managers to distribute tasks across projects with status monitoring (Pending/Completed).
+- **Authentication & Security**: Robust JWT-based authentication system with dedicated Admin and Agent role-based access control (RBAC).
+- **Cloud Infrastructure**: Fully serverless architecture utilizing Vercel, Firebase, and MongoDB Atlas for infinite scalability and zero-downtime performance.
+
+## 4. ADVANCED FUNCTIONS (THE GAMIFICATION ENGINE)
+- **Automated XP Engine**:
+    - Task Completion: Grants **+3 XP**.
+    - Attendance Continuity: Grants **+5 XP** for every 10-day streak of being present.
+- **Dynamic Efficiency Leveling**: Agent "Efficiency Scores" are automatically calculated as: `25.0 + (Total_XP // 100)`. Every 100 XP represents a "Level Up" in operational service capability.
+- **Automated Financial Rewards**: A real-time salary bonus engine that automatically adds a configured bonus amount (e.g., ₹1000) to an agent's salary every time they reach a new efficiency level.
+- **Automatic Promotion Engine**: 
+    - Milestones: Once an agent reaches Level 30+, the system automatically triggers a promotion review.
+    - Automated Upgrades: Every 5 levels after milestone achievement result in automated role/salary increments based on performance history.
+- **Mission Control Analytics HUD**: A specialized, high-density dashboard providing:
+    - Real-time Service Level tracking.
+    - Workforce distribution charts.
+    - Live Agent status monitoring.
+
+## 5. USAGE DESCRIPTION
+- **For Administrators**: Use the "Operations Dashboard" to register agents, manage projects, and oversee the entire organization. Monitor the "Personnel Management Console" for manual intervention in promotions or salary adjustments.
+- **For Agents**: Access the "Personal Profile" to view "Next Level" progress, track attendance history, and see real-time task analytics.
+- **For Operations Managers**: Utilize the "Workforce Analytics HUD" for a bird's-eye view of team connectivity, productivity metrics, and daily attendance distribution.
+
+## 6. TECHNOLOGY STACK
+- **Frontend**: React.js 19 (Vite), Tailwind CSS, Framer Motion (Animations), Recharts (Analytics).
+- **Backend**: FastAPI (Python), Mangum (Serverless Handler).
+- **Database**: MongoDB Atlas (Cloud NoSQL).
+- **Deployment**: Firebase Hosting (Frontend), Vercel (Backend API).
+
+## 7. WHY JOURVIX?
+Jourvix solves the "Boredom Gap" in BPO operations. By turning everyday clerical tasks and regular attendance into visible progress (XP) and immediate financial gain (Bonuses), the system creates a self-motivating workforce environment that rewards consistency and high-quality output automatically.
