@@ -7,6 +7,10 @@ from contextlib import asynccontextmanager
 from database import get_db, client, settings
 from fastapi.staticfiles import StaticFiles
 import os
+import sys
+
+# Path adjustment for Vercel monorepo deployments
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
