@@ -2,6 +2,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, HTTPExcept
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List
 import uvicorn
+from mangum import Mangum
 from contextlib import asynccontextmanager
 from database import get_db, client, settings
 from fastapi.staticfiles import StaticFiles
@@ -61,6 +62,9 @@ async def websocket_endpoint(websocket: WebSocket):
     except WebSocketDisconnect:
         manager.disconnect(websocket)
         await manager.broadcast("A client disconnected")
+
+# 👇 THIS is required for Vercel
+handler = Mangum(app)
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
