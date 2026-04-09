@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { User, Shield, Radio } from 'lucide-react';
-import axios from 'axios';
+import { useAuth } from '../context/AuthContext';
 
 const AgentCard = ({ name, role, status, efficiency }) => (
     <div className="glass-card p-4 flex items-center gap-4 group hover:border-neon-purple/50 transition-colors">
@@ -26,19 +26,20 @@ const AgentCard = ({ name, role, status, efficiency }) => (
 );
 
 const Agents = () => {
+    const { api } = useAuth();
     const [agents, setAgents] = useState([]);
 
     useEffect(() => {
         const fetchAgents = async () => {
             try {
-                const response = await axios.get('http://localhost:8000/api/agents');
-                // Map API response to UI model if needed, currently straightforward
+                const response = await api.get('/dashboard/agents');
+                // Map API response to UI model
                 setAgents(response.data.map(a => ({
-                    id: a._id,
-                    name: a.full_name,
+                    id: a.id,
+                    name: a.username,
                     role: a.role,
-                    status: a.is_active ? 'Available' : 'Logged Out', // Simplified status for now
-                    efficiency: 95 + Math.floor(Math.random() * 5) // Mock efficiency for now
+                    status: a.status === 'online' ? 'Available' : 'Logged Out',
+                    efficiency: a.efficiency || 95
                 })));
             } catch (error) {
                 console.error("Failed to fetch agents:", error);

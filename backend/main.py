@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from typing import List
 import uvicorn
 from contextlib import asynccontextmanager
-from database import get_db, client
+from database import get_db, client, settings
 from fastapi.staticfiles import StaticFiles
 import os
 
@@ -25,9 +25,10 @@ if not os.path.exists("uploads"):
     os.makedirs("uploads")
 
 # CORS
+origins = settings.CORS_ORIGINS.split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

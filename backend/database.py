@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "supersecretkeywhichshouldbechanged"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
+    CORS_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173"
 
 import certifi
 import ssl
