@@ -58,13 +58,25 @@ def get_next_role(current_role: str):
 
 async def check_and_apply_automatic_promotion(db, user):
     efficiency = calculate_efficiency(db, str(user["_id"]))
+    level_milestone = int(efficiency)
     
-    # Automatic Promotion Thresholds (Example: Every 5 levels after 30)
+    # 1. Performance Bonus (Every 100 XP / Every Level)
+    last_bonus_level = user.get("last_bonus_level", 25)
+    if level_milestone > last_bonus_level:
+        # Fetch bonus amount from settings
+        setting = db.settings.find_one({"key": "performance_bonus_amount"})
+        bonus_val = float(setting["value"]) if setting and setting.get("value") else 1000.0
+        
+        db.users.update_one(
+            {"_id": user["_id"]},
+            {"$inc": {"salary": bonus_val}, "$set": {"last_bonus_level": level_milestone}}
+        )
+        await create_log(db, f"PERFORMANCE BONUS: {user['username']} reached Level {level_milestone}. Bonus of ₹{bonus_val} added to salary.", user_id=str(user["_id"]))
+
+    # 2. Automatic Role Promotion (Every 5 Levels starting from 30)
     if efficiency >= 30 and user.get("role") != "admin":
         current_role = user.get("role", "agent")
         next_role = get_next_role(current_role)
-        
-        level_milestone = int(efficiency)
         last_promo_level = user.get("last_promotion_level", 25)
         
         if level_milestone >= last_promo_level + 5 and next_role:
