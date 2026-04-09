@@ -149,6 +149,7 @@ export default function RegisterAgent() {
                             categories={roleCategories}
                             value={formData.role}
                             onChange={(role) => setFormData({ ...formData, role: role })}
+                            placement="top"
                         />
                     </div>
 

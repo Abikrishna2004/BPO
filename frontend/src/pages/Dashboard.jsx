@@ -4,7 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
 import { CustomSelect } from '../components/CustomDropdowns';
-import { Activity, FileUp, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
+import WorkforceAnalyticsHUD from '../components/WorkforceAnalyticsHUD';
+import { Activity, FileUp, CheckCircle, Clock, AlertTriangle, LogOut, User, Settings, CreditCard, Trophy, Zap, Lock } from 'lucide-react';
 import { BarChart, Bar, ResponsiveContainer, Tooltip, AreaChart, Area, XAxis, YAxis } from 'recharts';
 
 const TypingText = ({ text, className }) => {
@@ -36,6 +37,7 @@ const AnimatedCounter = ({ value, duration = 2 }) => {
 
     return <motion.span>{rounded}</motion.span>;
 };
+
 
 const AnimatedBackground = () => (
     <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
@@ -147,6 +149,7 @@ export default function Dashboard() {
     const [myAttendanceHistory, setMyAttendanceHistory] = useState([]); // For Employees (Graph)
     const [bonusAmount, setBonusAmount] = useState(1000); // Admin Setting
     const [showReportModal, setShowReportModal] = useState(false);
+    const [showProjectModal, setShowProjectModal] = useState(false);
     const [reportSummary, setReportSummary] = useState("");
 
     useEffect(() => {
@@ -183,16 +186,73 @@ export default function Dashboard() {
         };
     }, []);
 
-    const [performance, setPerformance] = useState(null);
+    const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+    const [performance, setPerformance] = useState({
+        completed_tasks: 0,
+        pending_tasks: 0,
+        attendance_rate: 0,
+        efficiency: 25.0,
+        salary: 0,
+        performance_score: 0
+    });
+    const [loadingPerformance, setLoadingPerformance] = useState(true);
+    const [performanceError, setPerformanceError] = useState(null);
     const [tasks, setTasks] = useState([]);
     const [newTaskTitle, setNewTaskTitle] = useState("");
     const [newTaskDesc, setNewTaskDesc] = useState("");
     const [newTaskDeadline, setNewTaskDeadline] = useState("");
     const [selectedAgentId, setSelectedAgentId] = useState("");
+    const [error, setError] = useState(false);
+    const [loadingAttempts, setLoadingAttempts] = useState(0);
+
+    const [showProfileModal, setShowProfileModal] = useState(false);
+    const [editProfile, setEditProfile] = useState({
+        display_name: "",
+        email: "",
+        profile_photo: ""
+    });
+
+    useEffect(() => {
+        if (user) {
+            setEditProfile({
+                display_name: user.display_name || "",
+                email: user.email || "",
+                profile_photo: user.profile_photo || ""
+            });
+        }
+    }, [user]);
+
+    const saveProfile = async () => {
+        try {
+            await api.put('/users/profile', editProfile);
+            // Re-fetch current user to sync throughout the app
+            const res = await api.get('/users/me');
+            // useAuth likely doesn't have a direct "setUser" exported here easily unless we update AuthContext
+            // But we can just rely on the next refresh or provide a local reload
+            alert("Digital Signature Updated Successfully");
+            setShowProfileModal(false);
+            window.location.reload(); // Quick sync across context
+        } catch (e) { alert("Failed to update node configuration"); }
+    };
+
+    const getAvatarUrl = (photo) => {
+        if (!photo) return null;
+        if (photo.startsWith('http')) return photo;
+        const baseUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8005';
+        return photo.startsWith('uploads') ? `${baseUrl}/${photo}` : `${baseUrl}/uploads/${photo}`;
+    };
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            if (!performance && !error) setError(true);
+        }, 10000); // 10 seconds timeout
+        return () => clearTimeout(timer);
+    }, [performance, error]);
 
     useEffect(() => {
         const loadData = () => {
-            if (document.hidden) return; // Don't poll if tab is hidden
+            if (document.hidden || !user) return; // Don't poll if tab is hidden or user not yet loaded
+            
             if (user?.role === 'admin') {
                 fetchAgents();
                 fetchLogs();
@@ -201,7 +261,6 @@ export default function Dashboard() {
                 fetchAttendance();
                 fetchPerformance();
                 fetchTasks();
-
             }
         };
 
@@ -238,10 +297,18 @@ export default function Dashboard() {
 
 
     const fetchPerformance = async () => {
+        if (!user?.id) return;
         try {
+            setLoadingPerformance(true);
             const res = await api.get(`/performance/${user.id}`);
             setPerformance(res.data);
-        } catch (error) { console.error(error); }
+            setPerformanceError(null);
+        } catch (err) { 
+            console.error(err);
+            setPerformanceError("Synchronization Failed: Central Core unreachable.");
+        } finally {
+            setLoadingPerformance(false);
+        }
     };
 
     const fetchTasks = async () => {
@@ -284,6 +351,10 @@ export default function Dashboard() {
 
     const assignTask = async (e) => {
         e.preventDefault();
+        if (!selectedAgentId) {
+            alert("SYSTEM ERROR: No target node selected for directive transmission.");
+            return;
+        }
         try {
             await api.post('/tasks', {
                 title: newTaskTitle,
@@ -291,9 +362,19 @@ export default function Dashboard() {
                 agent_id: selectedAgentId,
                 deadline: newTaskDeadline ? new Date(newTaskDeadline).toISOString() : null
             });
-            alert("Task Assigned");
-            setNewTaskTitle(""); setNewTaskDesc(""); setNewTaskDeadline("");
-        } catch (error) { alert("Failed to assign task"); }
+            alert("Task Assigned to Unit");
+            // Clear inputs
+            setNewTaskTitle(""); 
+            setNewTaskDesc(""); 
+            setNewTaskDeadline("");
+            // Refresh counts for admin to see current sync status
+            if (user?.role === 'admin') {
+                fetchAgents();
+            }
+        } catch (error) { 
+            console.error("Task Assignment Failed:", error);
+            alert("Failed to assign task to remote node."); 
+        }
     };
 
     const [viewingHistory, setViewingHistory] = useState(null); // User ID for history modal
@@ -311,14 +392,29 @@ export default function Dashboard() {
     };
 
     const deleteUser = async (userId) => {
-        if (!window.confirm("Delete agent?")) return;
-        await api.delete(`/users/${userId}`);
-        fetchAgents();
+        if (!window.confirm("Delete agent node from central core?")) return;
+        try {
+            await api.delete(`/users/${userId}`);
+            fetchAgents();
+        } catch (e) { console.error(e); }
     };
 
-    const changePassword = async (userId) => {
-        const newPw = prompt("New password:");
-        if (newPw) await api.put(`/users/${userId}/password`, { new_password: newPw });
+    const promoteUser = async (user) => {
+        const newSalary = prompt(`Elevate ${user.username} - New Salary Package (LPA):`, user.salary);
+        const newRole = prompt(`Update Designation for ${user.username}:`, user.role);
+        if (newSalary === null || newRole === null) return;
+        
+        try {
+            await api.put(`/users/${user.id}/promote`, { 
+                salary: parseFloat(newSalary), 
+                role: newRole,
+                performance_score: user.performance_score + 10 // Award bonus points on promotion
+            });
+            fetchAgents();
+            alert("SYSTEM: Node Synchronized. Promotion applied successfully.");
+        } catch (e) {
+            alert("SYSTEM FAILURE: Could not apply promotion.");
+        }
     };
 
     const getAgentAttendanceStatus = (userId) => {
@@ -351,23 +447,29 @@ export default function Dashboard() {
 
     const openRecords = async (agent) => {
         setSelectedEmployee(agent);
-        setEmployeeTasks([]); // Clear data first
-        setShowRecordsModal(true); // Open modal immediately
+        setEmployeeTasks([]);
+        setShowRecordsModal(true);
 
         try {
-            const tasksRes = await api.get(`/tasks/user/${agent.id}`);
-            if (tasksRes.data) {
-                setEmployeeTasks(tasksRes.data);
+            // Fresh Sync: Fetch latest performance along with records
+            const [tasksRes, perfRes] = await Promise.all([
+                api.get(`/tasks/user/${agent.id}`),
+                api.get(`/performance/${agent.id}`)
+            ]);
+            
+            if (tasksRes.data) setEmployeeTasks(tasksRes.data);
+            if (perfRes.data) {
+                // Update selected employee with latest synced metrics
+                setSelectedEmployee(prev => ({ ...prev, ...perfRes.data }));
             }
         } catch (error) {
-            console.error("Error loading records:", error);
+            console.error("Error loading records sync:", error);
         }
     };
 
 
 
 
-    const [showProjectModal, setShowProjectModal] = useState(false);
     const [projectForm, setProjectForm] = useState({
         title: "",
         description: "",
@@ -562,201 +664,159 @@ export default function Dashboard() {
 
 
                 {/* Project Modal */}
-                {
-                    showProjectModal && (
-                        <div className="fixed inset-0 flex items-center justify-center p-4 bg-black/95 backdrop-blur-sm" style={{ zIndex: 9999 }}>
-                            <div className="bg-[#111] border border-white/20 rounded-xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl relative custom-scrollbar" style={{ zIndex: 10000, backgroundColor: '#111111' }}>
-                                <div className="flex justify-between items-center mb-6">
-                                    <h2 className="text-2xl font-bold">Create Team Project</h2>
-                                    <button onClick={() => setShowProjectModal(false)} className="text-gray-400 hover:text-white">✕ Close</button>
-                                </div>
+                {showProjectModal && createPortal(
+                    <div className="fixed inset-0 flex items-center justify-center p-4 bg-black/95 backdrop-blur-md z-[9999]" style={{ position: 'fixed' }}>
+                        <div className="bg-[#111] border border-white/20 rounded-xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl relative animate-in fade-in zoom-in duration-300 custom-scrollbar">
+                            <div className="flex justify-between items-center mb-6">
+                                <h2 className="text-2xl font-bold flex items-center gap-2 text-white">
+                                    <span className="text-purple-500">✨</span> Create Team Project
+                                </h2>
+                                <button
+                                    onClick={() => setShowProjectModal(false)}
+                                    className="text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 p-2 rounded-lg transition-all"
+                                >
+                                    ✕ Close
+                                </button>
+                            </div>
 
-                                <form onSubmit={launchProject} className="space-y-4">
-                                    <div>
-                                        <label className="block text-sm text-gray-400 mb-1">Project Title</label>
-                                        <input type="text" value={projectForm.title} onChange={e => setProjectForm({ ...projectForm, title: e.target.value })} className="w-full bg-black/20 border border-white/10 p-2 rounded text-white" required />
+                            <form onSubmit={launchProject} className="space-y-6">
+                                <div className="grid grid-cols-2 gap-6">
+                                    <div className="col-span-2 md:col-span-1">
+                                        <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Project Title</label>
+                                        <input
+                                            type="text"
+                                            value={projectForm.title}
+                                            onChange={e => setProjectForm({ ...projectForm, title: e.target.value })}
+                                            className="w-full bg-black/40 border border-white/10 p-3 rounded-xl text-white focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
+                                            placeholder="e.g. Q4 Data Migration"
+                                            required
+                                        />
                                     </div>
-                                    <div>
-                                        <label className="block text-sm text-gray-400 mb-1">Description</label>
-                                        <textarea value={projectForm.description} onChange={e => setProjectForm({ ...projectForm, description: e.target.value })} className="w-full bg-black/20 border border-white/10 p-2 rounded text-white" rows="3"></textarea>
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm text-gray-400 mb-1">Project Deadline</label>
+                                    <div className="col-span-2 md:col-span-1">
+                                        <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Project Deadline</label>
                                         <input
                                             type="datetime-local"
                                             value={projectForm.deadline}
                                             onChange={e => setProjectForm({ ...projectForm, deadline: e.target.value })}
-                                            className="w-full bg-black/20 border border-white/10 p-2 rounded text-white"
+                                            className="w-full bg-black/40 border border-white/10 p-3 rounded-xl text-white focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all text-sm"
                                         />
-                                        <p className="text-xs text-yellow-400 mt-1">Note: Late completion will reduce agent performance scores.</p>
                                     </div>
+                                </div>
 
-                                    <div className="border-t border-white/10 pt-4">
-                                        <label className="block text-sm text-gray-400 mb-2">Select Team Members</label>
-                                        <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto bg-black/20 p-2 rounded">
-                                            {agents.map(agent => (
-                                                <label key={agent.id} className="flex items-center space-x-2 cursor-pointer hover:bg-white/5 p-1 rounded">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={projectForm.selectedAgents.includes(agent.id)}
-                                                        onChange={() => toggleAgentSelection(agent.id)}
-                                                        className="rounded border-gray-600 bg-gray-700 text-primary focus:ring-primary"
-                                                    />
-                                                    <span className="text-sm">{agent.username}</span>
-                                                </label>
-                                            ))}
-                                        </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Description</label>
+                                    <textarea
+                                        value={projectForm.description}
+                                        onChange={e => setProjectForm({ ...projectForm, description: e.target.value })}
+                                        className="w-full bg-black/40 border border-white/10 p-3 rounded-xl text-white focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all resize-none"
+                                        rows="3"
+                                        placeholder="Detailed project objectives..."
+                                    />
+                                </div>
+
+                                <div className="border-t border-white/10 pt-6">
+                                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Select Team Members</label>
+                                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3 max-h-48 overflow-y-auto bg-black/40 p-4 rounded-xl border border-white/5 custom-scrollbar">
+                                        {agents.map(agent => (
+                                            <label
+                                                key={agent.id}
+                                                className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer border transition-all ${projectForm.selectedAgents.includes(agent.id) ? 'bg-purple-500/10 border-purple-500/30 text-white' : 'hover:bg-white/5 border-transparent text-gray-400'}`}
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    checked={projectForm.selectedAgents.includes(agent.id)}
+                                                    onChange={() => toggleAgentSelection(agent.id)}
+                                                    className="w-4 h-4 rounded border-gray-600 bg-gray-700 text-purple-600 focus:ring-purple-500 focus:ring-offset-black"
+                                                />
+                                                <span className="text-sm font-medium">{agent.username}</span>
+                                            </label>
+                                        ))}
                                     </div>
+                                </div>
 
-                                    <div className="border-t border-white/10 pt-4">
-                                        <div className="flex justify-between items-center mb-2">
-                                            <label className="block text-sm text-gray-400">Project Phases (Milestones)</label>
-                                            <button type="button" onClick={addPhase} className="text-xs bg-primary/20 text-primary px-2 py-1 rounded hover:bg-primary/30">+ Add Phase</button>
-                                        </div>
-                                        <div className="space-y-2 max-h-40 overflow-y-auto">
-                                            {projectForm.phases.map((phase, idx) => (
-                                                <div key={idx} className="flex gap-2">
-                                                    <span className="px-2 py-2 bg-white/5 text-gray-400 text-sm rounded w-8 text-center">{idx + 1}</span>
-                                                    <input
-                                                        type="text"
-                                                        value={phase}
-                                                        onChange={(e) => updatePhase(idx, e.target.value)}
-                                                        className="flex-1 bg-black/20 border border-white/10 p-2 rounded text-white text-sm"
-                                                        placeholder={`Phase ${idx + 1} Name`}
-                                                        required
-                                                    />
-                                                    {projectForm.phases.length > 1 && (
-                                                        <button type="button" onClick={() => removePhase(idx)} className="text-red-400 hover:bg-red-500/10 px-2 rounded">✕</button>
-                                                    )}
+                                <div className="border-t border-white/10 pt-6">
+                                    <div className="flex justify-between items-center mb-4">
+                                        <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest">Project Phases & Milestones</label>
+                                        <button
+                                            type="button"
+                                            onClick={addPhase}
+                                            className="text-[10px] font-bold uppercase tracking-widest bg-purple-500/10 text-purple-400 px-3 py-1.5 rounded-full border border-purple-500/30 hover:bg-purple-500/20 transition-all"
+                                        >
+                                            + Add Phase
+                                        </button>
+                                    </div>
+                                    <div className="space-y-3 max-h-40 overflow-y-auto custom-scrollbar pr-2">
+                                        {projectForm.phases.map((phase, idx) => (
+                                            <div key={idx} className="flex gap-3 animate-in slide-in-from-left-2 duration-300" style={{ animationDelay: `${idx * 50}ms` }}>
+                                                <div className="flex-none w-8 h-10 bg-white/5 border border-white/10 flex items-center justify-center rounded-lg text-xs font-mono text-gray-500">
+                                                    {idx + 1}
                                                 </div>
-                                            ))}
-                                        </div>
+                                                <input
+                                                    type="text"
+                                                    value={phase}
+                                                    onChange={(e) => updatePhase(idx, e.target.value)}
+                                                    className="flex-1 bg-black/40 border border-white/10 p-2 rounded-lg text-white text-sm focus:border-purple-500"
+                                                    placeholder={`Enter phase ${idx + 1} name...`}
+                                                    required
+                                                />
+                                                {projectForm.phases.length > 1 && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removePhase(idx)}
+                                                        className="flex-none p-2 text-red-500/50 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
+                                                    >
+                                                        ✕
+                                                    </button>
+                                                )}
+                                            </div>
+                                        ))}
                                     </div>
+                                </div>
 
-                                    <button type="submit" className="w-full bg-primary hover:bg-primary-hover text-white font-semibold py-3 rounded-lg mt-4 shadow-lg shadow-primary/20 transition-all">
-                                        🚀 Launch Project & Assign Tasks
-                                    </button>
-                                </form>
-                            </div>
+                                <button
+                                    type="submit"
+                                    className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white font-black uppercase tracking-[0.2em] py-4 rounded-xl mt-6 shadow-xl shadow-purple-500/20 hover:shadow-purple-500/40 transition-all duration-300"
+                                >
+                                    🚀 Launch Project System
+                                </button>
+                            </form>
                         </div>
-                    )
-                }
+                    </div>,
+                    document.body
+                )}
 
                 {/* Records Modal */}
-                {
-                    showRecordsModal && selectedEmployee && (
-                        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-                            <div className="bg-secondary border border-white/10 rounded-xl p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-                                <div className="flex justify-between items-center mb-6">
-                                    <div>
-                                        <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                                            <span className="text-blue-500">📂</span>
-                                            {selectedEmployee.username}
-                                            <span className="text-gray-500 text-lg font-normal">/ Project Status & Documentation</span>
-                                        </h2>
-                                        <p className="text-gray-400 text-sm mt-1">Employee ID: {selectedEmployee.id} • Role: {selectedEmployee.role}</p>
-                                    </div>
-                                    <button onClick={() => setShowRecordsModal(false)} className="text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 px-3 py-1 rounded transition-colors">✕ Close</button>
-                                </div>
-
-                                <div className="grid grid-cols-1 gap-6">
-                                    <div>
-                                        <div className="space-y-4 max-h-[60vh] overflow-y-auto custom-scrollbar pr-2">
-                                            {employeeTasks.length === 0 ? (
-                                                <div className="flex flex-col items-center justify-center py-12 border border-white/5 rounded-2xl bg-white/[0.02]">
-                                                    <div className="text-4xl mb-4">📭</div>
-                                                    <p className="text-gray-400 font-semibold">No project records or documentation found.</p>
-                                                    <p className="text-gray-600 text-sm">Tasks assigned will appear here.</p>
-                                                </div>
-                                            ) : employeeTasks.map(t => (
-                                                <div key={t.id} className="bg-black/40 p-6 rounded-2xl border border-white/10 hover:border-blue-500/30 transition-all group relative overflow-hidden shadow-lg">
-                                                    <div className="flex justify-between items-start mb-4">
-                                                        <div className="flex flex-wrap items-center gap-2">
-                                                            <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border shadow-sm ${t.status === 'completed' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 shadow-emerald-500/10' : 'bg-amber-500/10 text-amber-400 border-amber-500/20 shadow-amber-500/10'}`}>
-                                                                {t.status}
-                                                            </span>
-                                                            {t.project_title && (
-                                                                <span className="flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-purple-500/10 text-purple-400 border border-purple-500/20 shadow-sm shadow-purple-500/10">
-                                                                    <span>🚀</span> {t.project_title}
-                                                                </span>
-                                                            )}
-                                                            <span className="text-[10px] text-gray-500 font-mono bg-white/5 px-2 py-1 rounded border border-white/5">
-                                                                ID: #{t.id}
-                                                            </span>
-                                                        </div>
-                                                        <span className="text-[11px] text-gray-400 font-mono flex items-center gap-1">
-                                                            📅 {new Date(t.created_at).toLocaleDateString()}
-                                                        </span>
-                                                    </div>
-
-                                                    <div className="mb-4 pl-1">
-                                                        <h4 className="font-bold text-white text-base mb-2">{t.title}</h4>
-                                                        <p className="text-sm text-gray-400 leading-relaxed">{t.description}</p>
-                                                    </div>
-
-                                                    {t.completion_notes && (
-                                                        <div className="mb-5 bg-emerald-900/5 rounded-xl border border-emerald-500/10 overflow-hidden">
-                                                            <div className="px-4 py-2 bg-emerald-500/10 border-b border-emerald-500/10 flex items-center gap-2">
-                                                                <span className="text-emerald-400">✅</span>
-                                                                <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider">Submission Report</span>
-                                                            </div>
-                                                            <div className="p-4 text-sm text-gray-300">
-                                                                {t.completion_notes}
-                                                            </div>
-                                                        </div>
-                                                    )}
-
-                                                    <div className="mt-4 pt-4 border-t border-white/5">
-                                                        <div className="flex items-center gap-2 mb-3">
-                                                            <span className="text-[11px] text-blue-400 font-bold uppercase tracking-wider flex items-center gap-1">
-                                                                <span className="text-base">📎</span> Attached Documentation & Evidence
-                                                            </span>
-                                                        </div>
-                                                        {t.attachments && parseAttachments(t.attachments).length > 0 ? (
-                                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                                                                {parseAttachments(t.attachments).map((path, idx) => {
-                                                                    const filename = path.split('/').pop();
-                                                                    return (
-                                                                        <a
-                                                                            key={idx}
-                                                                            href={`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'}/${path}`}
-                                                                            target="_blank"
-                                                                            rel="noopener noreferrer"
-                                                                            className="group flex items-center gap-3 px-3 py-2 bg-[#1a1a1a] hover:bg-blue-500/10 border border-white/10 hover:border-blue-500/30 rounded-lg transition-all"
-                                                                        >
-                                                                            <div className="bg-white/5 p-1.5 rounded text-lg group-hover:scale-110 transition-transform">📄</div>
-                                                                            <div className="overflow-hidden">
-                                                                                <span className="block text-xs font-medium text-gray-300 group-hover:text-blue-400 truncate w-full">{filename}</span>
-                                                                                <span className="text-[10px] text-gray-600 group-hover:text-blue-500/70">Click to View</span>
-                                                                            </div>
-                                                                        </a>
-                                                                    );
-                                                                })}
-                                                            </div>
-                                                        ) : (
-                                                            <div className="flex items-center gap-2 text-gray-600 italic text-xs pl-2">
-                                                                <span className="w-1 h-1 rounded-full bg-gray-700"></span>
-                                                                No files attached to this record.
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
+                {showRecordsModal && selectedEmployee && createPortal(
+                    <div className="fixed inset-0 bg-black/98 backdrop-blur-3xl flex items-center justify-center z-[99999] p-4" style={{ position: 'fixed' }}>
+                        <motion.div 
+                            initial={{ scale: 0.9, opacity: 0, y: 40 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            className="bg-[#0a0a0c] border border-white/10 rounded-[3rem] p-10 max-w-6xl w-full max-h-[92vh] overflow-hidden flex flex-col shadow-[0_50px_100px_rgba(0,0,0,0.8)] relative"
+                        >
+                            {/* Decorative Background Node */}
+                            <div className="absolute top-0 right-0 w-[40%] h-full bg-gradient-to-l from-blue-600/5 to-transparent pointer-events-none" />
+                            
+                            <div className="flex-1 overflow-hidden flex flex-col">
+                                <WorkforceAnalyticsHUD 
+                                    targetUser={selectedEmployee}
+                                    perfData={employeePerformance || selectedEmployee}
+                                    tasksData={employeeTasks}
+                                    getAvatarUrl={getAvatarUrl}
+                                    completeTask={() => {}} // Admin doesn't complete tasks for them
+                                    isAdminView={true}
+                                />
                             </div>
-                        </div>
-                    )
-                }
+                        </motion.div>
+                    </div>,
+                    document.body
+                )}
 
                 {/* Closing div for container that was previously restricted to bottom, now wrapping content */}
-            </div >
+            </div>
 
             {/* Content Wrapper */}
-            < div className="relative z-10 max-w-7xl mx-auto mt-8" >
-                <header className="flex justify-between items-center mb-10 relative group">
+            <div className="relative z-10 max-w-7xl mx-auto mt-8">
+                <header className="flex justify-between items-center mb-10 relative z-50 group">
                     <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 to-blue-600 rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-1000 group-hover:duration-200"></div>
                     <div className="relative w-full bg-[#09090b]/80 backdrop-blur-2xl p-8 rounded-2xl border border-white/10 shadow-2xl flex justify-between items-center">
                         <div>
@@ -773,54 +833,123 @@ export default function Dashboard() {
                                 SYSTEM OPERATIONAL | <span className="text-primary font-bold shadow-blue-500/50 drop-shadow-sm">{user?.display_name || user?.username}</span>
                             </motion.p>
                         </div>
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-6">
                             {user?.role !== 'admin' && (
                                 <motion.button
                                     whileHover={{ scale: 1.05 }}
                                     whileTap={{ scale: 0.95 }}
                                     onClick={() => setShowReportModal(true)}
-                                    className="px-4 py-3 border border-blue-500/30 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 font-bold text-xs uppercase tracking-widest flex items-center gap-2 shadow-[0_0_15px_rgba(59,130,246,0.2)]"
+                                    className="px-4 py-3 border border-blue-500/30 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 font-black text-[10px] uppercase tracking-widest flex items-center gap-2 shadow-[0_0_15px_rgba(59,130,246,0.1)] transition-all"
                                 >
-                                    📝 Report
+                                    📝 New Report
                                 </motion.button>
                             )}
-                            <motion.button
-                                whileHover={{ scale: 1.05, backgroundColor: 'rgba(239,68,68,0.15)', borderColor: 'rgba(239,68,68,0.5)' }}
-                                whileTap={{ scale: 0.95 }}
-                                onClick={() => { logout(); navigate('/login'); }}
-                                className="group relative px-8 py-4 border border-white/10 rounded-xl overflow-hidden bg-black/40 backdrop-blur-md transition-all shadow-[0_0_20px_rgba(0,0,0,0.5)]"
-                            >
-                                <span className="relative z-10 text-red-500/80 group-hover:text-red-400 font-bold tracking-widest text-xs uppercase flex items-center gap-2">
-                                    <span className="w-2 h-2 rounded-full bg-red-500/50 group-hover:bg-red-500 group-hover:shadow-[0_0_10px_#ef4444] transition-all"></span>
-                                    Disconnect
-                                </span>
-                            </motion.button>
+                            
+                            {/* Profile Dropdown Container */}
+                            <div className="relative">
+                                <motion.button
+                                    onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+                                    whileHover={{ scale: 1.02, backgroundColor: 'rgba(255, 255, 255, 0.08)' }}
+                                    className="flex items-center gap-4 p-1.5 pr-6 bg-black/60 backdrop-blur-md border border-white/10 rounded-full transition-all group"
+                                >
+                                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 p-0.5 shadow-lg group-hover:shadow-blue-500/20 transition-all">
+                                        <div className="w-full h-full rounded-full bg-black flex items-center justify-center text-sm font-black text-white overflow-hidden">
+                                            {user?.profile_photo ? (
+                                                <img src={getAvatarUrl(user.profile_photo)} alt="Avatar" className="w-full h-full object-cover" />
+                                            ) : (
+                                                <span>{user?.username?.slice(0, 1).toUpperCase()}</span>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div className="text-left hidden md:block">
+                                        <div className="text-[10px] font-black text-white tracking-widest uppercase leading-none mb-0.5">{user?.display_name || user?.username}</div>
+                                        <div className="text-[8px] font-bold text-blue-500/60 uppercase tracking-tighter">{user?.role}</div>
+                                    </div>
+                                    <div className={`ml-2 transition-transform duration-300 ${showProfileDropdown ? 'rotate-180' : ''}`}>
+                                        <Settings className="w-3.5 h-3.5 text-gray-600 group-hover:text-blue-400" />
+                                    </div>
+                                </motion.button>
+
+                                {showProfileDropdown && (
+                                    <motion.div 
+                                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                                        className="absolute right-0 mt-4 w-72 bg-[#0c0c0e] border border-white/10 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.8)] overflow-hidden z-[9999] backdrop-blur-2xl"
+                                    >
+                                        <div className="p-6 bg-gradient-to-br from-blue-500/10 to-transparent border-b border-white/5">
+                                            <div className="flex items-center gap-4 mb-4">
+                                                <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-2xl font-black text-white shadow-xl ring-2 ring-white/10 overflow-hidden">
+                                                    {user?.profile_photo ? (
+                                                        <img src={getAvatarUrl(user.profile_photo)} alt="Profile" className="w-full h-full object-cover" />
+                                                    ) : (
+                                                        <span>{user?.username?.slice(0, 1).toUpperCase()}</span>
+                                                    )}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="text-white font-black uppercase tracking-tighter truncate text-lg leading-tight">{user?.display_name || user?.username}</div>
+                                                    <div className="text-[10px] text-blue-400/80 font-mono tracking-widest uppercase font-black mb-1">{user?.role}</div>
+                                                    <div className="text-[9px] text-gray-500 font-mono truncate">{user?.email || 'OFFLINE_NODE@JOURVIX.NET'}</div>
+                                                </div>
+                                            </div>
+                                            {user?.role !== 'admin' && (
+                                                <div className="bg-white/5 rounded-lg py-1.5 px-3 flex items-center justify-between border border-white/5">
+                                                    <span className="text-[8px] font-black text-gray-500 uppercase tracking-widest">Efficiency Index</span>
+                                                    <span className="text-xs font-mono text-blue-400 font-bold">{Math.floor(performance?.efficiency || 0)}</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                        
+                                        <div className="p-2">
+                                            <button 
+                                                onClick={() => { setShowProfileModal(true); setShowProfileDropdown(false); }}
+                                                className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 text-gray-400 hover:text-white transition-all text-[10px] font-black uppercase tracking-widest group/item"
+                                            >
+                                                <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center group-hover/item:bg-blue-500/20 transition-colors">
+                                                    <User className="w-4 h-4 group-hover/item:text-blue-400" />
+                                                </div>
+                                                Change Profile
+                                            </button>
+                                            <div className="my-2 border-t border-white/5" />
+                                            <button 
+                                                onClick={() => { logout(); navigate('/login'); }}
+                                                className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-red-500/10 text-red-500/60 hover:text-red-500 transition-all text-[10px] font-black uppercase tracking-widest group/item"
+                                            >
+                                                <div className="w-8 h-8 rounded-lg bg-red-500/5 flex items-center justify-center group-hover/item:bg-red-500/20 transition-colors">
+                                                    <LogOut className="w-4 h-4" />
+                                                </div>
+                                                Disconnect Node
+                                            </button>
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </header>
 
                 {/* Daily Report Modal */}
-                {showReportModal && (
-                    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[9999] p-4">
+                {showReportModal && createPortal(
+                    <div className="fixed inset-0 bg-black/95 backdrop-blur-md flex items-center justify-center z-[9999] p-4" style={{ position: 'fixed' }}>
                         <motion.div
                             initial={{ scale: 0.9, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
-                            className="bg-[#111] border border-white/20 rounded-xl p-6 max-w-lg w-full shadow-2xl relative"
+                            className="bg-[#111] border border-white/20 rounded-2xl p-8 max-w-xl w-full shadow-[0_0_50px_rgba(0,0,0,0.5)] relative animate-in fade-in zoom-in duration-300"
                         >
-                            <h2 className="text-xl font-bold mb-4 text-white flex items-center gap-2">
-                                📝 End of Day Report
+                            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-transparent pointer-events-none rounded-2xl" />
+                            <h2 className="text-2xl font-black text-white flex items-center gap-3 mb-2 uppercase tracking-tighter">
+                                <span className="text-blue-500">📝</span> Activity Log
                             </h2>
-                            <p className="text-gray-400 text-sm mb-4">Summarize your achievements, tasks completed, and any blockers for today.</p>
+                            <p className="text-gray-500 text-sm mb-6 font-medium">Summarize your operational achievements and identify any infrastructure blockers.</p>
                             <textarea
                                 value={reportSummary}
                                 onChange={(e) => setReportSummary(e.target.value)}
-                                className="w-full h-32 bg-black/40 border border-white/10 p-3 rounded-lg text-white font-mono text-sm focus:border-blue-500 focus:outline-none custom-scrollbar resize-none"
-                                placeholder="- Completed Task A&#10;- Fixed Bug B&#10;- Pending review for C..."
+                                className="w-full h-48 bg-black/40 border border-white/10 p-4 rounded-xl text-white font-mono text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50 outline-none transition-all placeholder:text-gray-700 resize-none custom-scrollbar"
+                                placeholder="- Completed Task Alpha&#10;- Resolved Node latency issue&#10;- Investigating DB throughput bottleneck..."
                             />
-                            <div className="flex justify-end gap-3 mt-6">
+                            <div className="flex justify-end gap-3 mt-8">
                                 <button
                                     onClick={() => setShowReportModal(false)}
-                                    className="px-4 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
+                                    className="px-6 py-2.5 rounded-xl text-sm font-bold text-gray-500 hover:text-white hover:bg-white/5 transition-all"
                                 >
                                     Cancel
                                 </button>
@@ -829,18 +958,19 @@ export default function Dashboard() {
                                         if (!reportSummary.trim()) return;
                                         try {
                                             await api.post('/report/daily', { summary: reportSummary });
-                                            alert("Report Submitted Successfully");
+                                            alert("Operation Log Transmitted Successfully");
                                             setReportSummary("");
                                             setShowReportModal(false);
-                                        } catch (e) { alert("Failed to submit report"); }
+                                        } catch (e) { alert("Data transmission failed"); }
                                     }}
-                                    className="px-6 py-2 rounded-lg text-sm font-bold bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-500/20 transition-all"
+                                    className="px-8 py-2.5 rounded-xl text-sm font-black uppercase tracking-widest bg-blue-600 hover:bg-blue-500 text-white shadow-xl shadow-blue-500/20 hover:shadow-blue-500/40 transition-all duration-300"
                                 >
-                                    Submit
+                                    Execute Send
                                 </button>
                             </div>
                         </motion.div>
-                    </div>
+                    </div>,
+                    document.body
                 )}
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -886,30 +1016,72 @@ export default function Dashboard() {
                                 initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ delay: 0.2 }}
-                                className="bg-black/40 backdrop-blur-xl border border-white/10 p-6 rounded-2xl col-span-2 hover:border-blue-500/30 transition-colors shadow-lg"
+                                className="bg-black/40 backdrop-blur-xl border border-white/10 p-8 rounded-2xl col-span-2 hover:border-blue-500/30 transition-all shadow-2xl flex flex-col"
                             >
-                                <h3 className="text-lg font-semibold mb-4">Project & Task Assignment</h3>
-                                <div className="flex justify-between mb-4">
-                                    <button onClick={() => setShowProjectModal(true)} className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-bold py-3 rounded-lg shadow-lg shadow-blue-500/20 transition-all flex items-center justify-center gap-2">
-                                        ✨ Create Team Project
-                                    </button>
+                                <h3 className="text-xl font-bold mb-6 text-white flex items-center gap-2">
+                                    <span className="text-blue-500">🎯</span> Project & Task Assignment
+                                </h3>
+                                <div className="mb-8">
+                                    <motion.button
+                                        whileHover={{ scale: 1.02, x: 5 }}
+                                        whileTap={{ scale: 0.98 }}
+                                        onClick={() => setShowProjectModal(true)}
+                                        className="w-full bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-black uppercase tracking-[0.2em] py-4 rounded-xl shadow-[0_0_20px_rgba(79,70,229,0.3)] hover:shadow-[0_0_30px_rgba(79,70,229,0.5)] transition-all flex items-center justify-center gap-3 group"
+                                    >
+                                        <span className="text-lg group-hover:rotate-12 transition-transform">✨</span> Create Team Project
+                                    </motion.button>
                                 </div>
 
-                                <form onSubmit={assignTask} className="grid grid-cols-2 gap-4 border-t border-white/10 pt-4">
-                                    <p className="col-span-2 text-sm text-gray-400">Or assign a single task:</p>
-                                    <input type="text" placeholder="Task Title" value={newTaskTitle} onChange={e => setNewTaskTitle(e.target.value)} className="bg-black/20 border border-white/10 p-2 rounded text-white" required />
-                                    <CustomSelect
-                                        options={agents.map(a => ({ value: a.id, label: a.username, sub: a.role }))}
-                                        value={selectedAgentId}
-                                        onChange={setSelectedAgentId}
-                                        placeholder="Select Agent..."
-                                        centered={false}
-                                    />
-                                    <div className="col-span-2 grid grid-cols-2 gap-4">
-                                        <input type="text" placeholder="Description" value={newTaskDesc} onChange={e => setNewTaskDesc(e.target.value)} className="bg-black/20 border border-white/10 p-2 rounded text-white" />
-                                        <input type="datetime-local" value={newTaskDeadline} onChange={e => setNewTaskDeadline(e.target.value)} className="bg-black/20 border border-white/10 p-2 rounded text-white text-xs" />
+                                <div className="relative mb-6">
+                                    <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                                        <div className="w-full border-t border-white/10"></div>
                                     </div>
-                                    <button type="submit" className="col-span-2 bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10 py-2 rounded">Quick Assign Task</button>
+                                    <div className="relative flex justify-center text-sm">
+                                        <span className="px-4 bg-[#09090b] text-gray-500 font-bold uppercase tracking-widest text-[10px]">Or assign a single task</span>
+                                    </div>
+                                </div>
+
+                                <form onSubmit={assignTask} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-4">
+                                        <input
+                                            type="text"
+                                            placeholder="Task Title"
+                                            value={newTaskTitle}
+                                            onChange={e => setNewTaskTitle(e.target.value)}
+                                            className="w-full bg-white/[0.03] border border-white/10 p-4 rounded-xl text-white placeholder:text-gray-600 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50 outline-none transition-all"
+                                            required
+                                        />
+                                        <input
+                                            type="text"
+                                            placeholder="Description"
+                                            value={newTaskDesc}
+                                            onChange={e => setNewTaskDesc(e.target.value)}
+                                            className="w-full bg-white/[0.03] border border-white/10 p-4 rounded-xl text-white placeholder:text-gray-600 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50 outline-none transition-all"
+                                        />
+                                    </div>
+                                    <div className="space-y-4">
+                                        <CustomSelect
+                                            options={agents.map(a => ({ value: a.id, label: a.username, sub: a.role }))}
+                                            value={selectedAgentId}
+                                            onChange={setSelectedAgentId}
+                                            placeholder="Select Agent..."
+                                            centered={false}
+                                        />
+                                        <input
+                                            type="datetime-local"
+                                            value={newTaskDeadline}
+                                            onChange={e => setNewTaskDeadline(e.target.value)}
+                                            className="w-full bg-white/[0.03] border border-white/10 p-4 rounded-xl text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50 outline-none transition-all text-xs font-mono uppercase"
+                                        />
+                                    </div>
+                                    <motion.button
+                                        whileHover={{ backgroundColor: 'rgba(255,255,255,0.08)' }}
+                                        whileTap={{ scale: 0.98 }}
+                                        type="submit"
+                                        className="md:col-span-2 bg-white/[0.05] hover:bg-white/[0.08] text-white font-bold uppercase tracking-widest text-[10px] border border-white/10 py-4 rounded-xl transition-all shadow-inner"
+                                    >
+                                        Quick Assign Pipeline Task
+                                    </motion.button>
                                 </form>
                             </motion.div>
 
@@ -924,23 +1096,77 @@ export default function Dashboard() {
                                 <div className="overflow-x-auto">
                                     <table className="w-full text-left">
                                         <thead>
-                                            <tr className="border-b border-white/10 text-gray-400"><th className="p-3">Agent</th><th className="p-3">Role</th><th className="p-3">Status</th><th className="p-3">Last Active</th><th className="p-3">Actions</th></tr>
+                                            <tr className="border-b border-white/10 text-gray-400">
+                                                <th className="p-3">Agent</th>
+                                                <th className="p-3">Performance Index</th>
+                                                <th className="p-3">Status</th>
+                                                <th className="p-3">Last Active</th>
+                                                <th className="p-3">Actions</th>
+                                            </tr>
                                         </thead>
                                         <tbody className="divide-y divide-white/5">
                                             {agents.map(agent => (
                                                 <>
-                                                    <tr key={agent.id}>
-                                                        <td className="p-3">{agent.username}</td>
-                                                        <td className="p-3"><span className="text-xs font-mono text-gray-400 uppercase bg-white/5 px-2 py-1 rounded border border-white/10">{agent.role}</span></td>
-                                                        <td className="p-3"><span className={`px-2 py-1 rounded text-xs ${getAgentAttendanceStatus(agent.id) === 'present' ? 'bg-success/20 text-success' : getAgentAttendanceStatus(agent.id) === 'absent' ? 'bg-danger/20 text-danger' : 'bg-gray-700 text-gray-300'}`}>{getAgentAttendanceStatus(agent.id).toUpperCase()}</span></td>
-                                                        <td className="p-3 text-xs font-mono text-gray-500">{agent.last_active ? new Date(agent.last_active).toLocaleString() : 'N/A'}</td>
+                                                    <tr key={agent.id} className="group/row hover:bg-white/[0.02] transition-colors">
+                                                        <td className="p-3">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden shrink-0">
+                                                                    {agent.profile_photo ? (
+                                                                        <img src={getAvatarUrl(agent.profile_photo)} alt="" className="w-full h-full object-cover" />
+                                                                    ) : (
+                                                                        <span className="text-[10px] font-black">{agent.username.slice(0, 1).toUpperCase()}</span>
+                                                                    )}
+                                                                </div>
+                                                                <div className="flex flex-col">
+                                                                    <span className="text-white font-bold">{agent.username}</span>
+                                                                    <span className="text-[10px] font-mono text-gray-500 uppercase tracking-widest">{agent.role}</span>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                        <td className="p-3">
+                                                            <div className="flex flex-col gap-2 w-44 bg-white/[0.03] border border-white/5 p-3 rounded-2xl group/perf hover:border-blue-500/30 transition-all">
+                                                                <div className="flex justify-between items-end">
+                                                                    <div className="flex flex-col">
+                                                                        <span className="text-[7px] font-black text-gray-500 uppercase tracking-widest leading-none mb-1">Service Level</span>
+                                                                        <span className="text-2xl font-black text-white tracking-tighter leading-none">{Math.floor(agent.efficiency)}</span>
+                                                                    </div>
+                                                                    <div className="text-right">
+                                                                        <div className="flex items-center gap-1 justify-end">
+                                                                            <span className="text-[7px] font-black text-blue-500/60 uppercase tracking-widest">Next</span>
+                                                                            <span className="text-xs font-mono text-blue-400 font-bold">{Math.round((agent.efficiency % 1) * 100)}%</span>
+                                                                        </div>
+                                                                        <div className="text-[6px] text-gray-700 font-mono tracking-tighter uppercase font-black">+3.5 PTS/TASK AVG</div>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
+                                                                    <motion.div 
+                                                                        initial={{ width: 0 }}
+                                                                        animate={{ width: `${(agent.efficiency % 1) * 100}%` }}
+                                                                        className="h-full bg-gradient-to-r from-blue-600 to-blue-400 shadow-[0_0_10px_rgba(59,130,246,0.5)]"
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                        <td className="p-3">
+                                                            <span className={`px-2 py-1 rounded text-[10px] font-black uppercase tracking-tight ${getAgentAttendanceStatus(agent.id) === 'present' ? 'bg-success/20 text-success border border-success/30' : getAgentAttendanceStatus(agent.id) === 'absent' ? 'bg-danger/20 text-danger border border-danger/30' : 'bg-gray-700/20 text-gray-400 border border-white/10'}`}>
+                                                                {getAgentAttendanceStatus(agent.id) || 'OFFLINE'}
+                                                            </span>
+                                                        </td>
+                                                        <td className="p-3 text-[10px] font-mono text-gray-500 tabular-nums">
+                                                            {agent.last_active ? new Date(agent.last_active).toLocaleString() : '---'}
+                                                        </td>
                                                         <td className="p-3 space-x-2 flex">
-                                                            <button onClick={() => markAttendance(agent.id, 'present')} className="px-2 py-1 bg-success/10 text-success border border-success/30 rounded text-xs">Present</button>
-                                                            <button onClick={() => markAttendance(agent.id, 'absent')} className="px-2 py-1 bg-danger/10 text-danger border border-danger/30 rounded text-xs">Absent</button>
-                                                            <button onClick={() => viewHistory(agent.id)} className="px-2 py-1 bg-blue-500/10 text-blue-400 border border-blue-500/30 rounded text-xs">History</button>
-                                                            <div className="w-px h-6 bg-white/10 mx-2"></div>
-                                                            <button onClick={() => changePassword(agent.id)} className="px-2 py-1 bg-primary/10 text-primary border border-primary/30 rounded text-xs">Pwd</button>
-                                                            <button onClick={() => deleteUser(agent.id)} className="px-2 py-1 bg-white/5 text-gray-400 border border-white/10 rounded text-xs">Del</button>
+                                                            <button onClick={() => markAttendance(agent.id, 'present')} className="px-2 py-1 bg-success/10 text-success border border-success/30 rounded text-[9px] uppercase font-bold">Present</button>
+                                                            <button onClick={() => markAttendance(agent.id, 'absent')} className="px-2 py-1 bg-danger/10 text-danger border border-danger/30 rounded text-[9px] uppercase font-bold">Absent</button>
+                                                            <button onClick={() => viewHistory(agent.id)} className="px-2 py-1 bg-blue-500/10 text-blue-400 border border-blue-500/30 rounded text-[9px] uppercase font-bold">History</button>
+                                                            <div className="w-px h-6 bg-white/10 mx-1"></div>
+                                                            <button 
+                                                                onClick={() => promoteUser(agent.id)} 
+                                                                className={`px-2 py-1 bg-amber-500/10 text-amber-500 border border-amber-500/30 rounded text-[9px] uppercase font-bold ${agent.efficiency >= 50 ? 'animate-pulse bg-amber-500/20' : ''}`}
+                                                            >
+                                                                Promote
+                                                            </button>
+                                                            <button onClick={() => deleteUser(agent.id)} className="px-2 py-1 bg-white/5 text-gray-400 border border-white/10 rounded text-[9px] uppercase font-bold">Del</button>
                                                         </td>
                                                     </tr>
                                                     {viewingHistory === agent.id && (
@@ -1003,223 +1229,117 @@ export default function Dashboard() {
 
                         </>
                     ) : (
-                        <div className="col-span-1 md:col-span-3 h-full min-h-[60vh] flex flex-col perspective-1000 gap-6">
-                            {performance ? (() => {
-                                // Metric Calculations
-                                let baseEfficiency = 25;
-                                let xp = (performance.completed_tasks * 15) + ((performance.attendance_rate || 0) * 0.5);
-                                if (performance.attendance_rate > 50 && performance.completed_tasks < 1) xp -= 50;
-                                xp = Math.max(0, xp);
-                                const pointsGained = Math.floor(xp / 100);
-                                const efficiency = Math.min(100, baseEfficiency + pointsGained);
+                        <div className="col-span-1 md:col-span-3 h-full">
+                            <WorkforceAnalyticsHUD 
+                                targetUser={user}
+                                perfData={performance}
+                                tasksData={tasks}
+                                getAvatarUrl={getAvatarUrl}
+                                completeTask={completeTask}
+                            />
+                        </div>
+                    )}
+                </div>
 
-                                // Attendance Graph Data
-                                const attendanceData = myAttendanceHistory.map(record => ({
-                                    date: new Date(record.date || record.created_at).getDate(),
-                                    presence: record.status === 'present' ? 100 : 20,
-                                    status: record.status
-                                }));
+                {/* Profile Modal */}
+                {showProfileModal && createPortal(
+                    <div className="fixed inset-0 bg-black/98 backdrop-blur-2xl flex items-center justify-center z-[99999] p-4" style={{ position: 'fixed' }}>
+                        <motion.div
+                            initial={{ scale: 0.95, opacity: 0, y: 30 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            className="bg-[#0c0c0e] border border-white/10 rounded-[2.5rem] p-12 max-w-2xl w-full shadow-[0_0_100px_rgba(59,130,246,0.15)] relative overflow-hidden"
+                        >
+                            {/* Decorative Background Elements */}
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-[100px] pointer-events-none" />
+                            <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-600/5 rounded-full blur-[100px] pointer-events-none" />
 
-                                // Real Performance Trend Data (30 Days)
-                                const past30Days = Array.from({ length: 30 }, (_, i) => {
-                                    const d = new Date();
-                                    d.setDate(d.getDate() - (29 - i));
-                                    d.setHours(23, 59, 59, 999); // End of day
-                                    return d;
-                                });
+                            <div className="relative z-10">
+                                <header className="mb-10 text-center">
+                                    <div className="inline-block px-3 py-1 rounded-full border border-primary/30 bg-primary/10 text-primary text-[10px] font-black uppercase tracking-[0.2em] mb-4">
+                                        Identity Management
+                                    </div>
+                                    <h3 className="text-4xl font-black text-white tracking-tighter uppercase mb-2">Profile Configuration</h3>
+                                    <p className="text-gray-500 font-medium text-sm">Update your system identifier and node credentials</p>
+                                </header>
 
-                                const perfTrendData = past30Days.map(date => {
-                                    // Tasks completed by this date
-                                    const completedCount = tasks.filter(t =>
-                                        t.status === 'completed' &&
-                                        new Date(t.updated_at || t.created_at) <= date
-                                    ).length;
-
-                                    // XP calculation: Base 25 + (Tasks * 5)
-                                    // Make it fluctuate slightly to look natural if static
-                                    const baseScore = Math.min(100, 25 + (completedCount * 5));
-                                    const dayHash = date.getDate() + date.getMonth();
-                                    // Add small variation based on day so flat lines aren't boring, but trend is real
-                                    // Only if score is constant
-
-                                    return {
-                                        day: date.toLocaleDateString('en-US', { day: '2-digit', month: 'short' }),
-                                        score: baseScore
-                                    };
-                                });
-
-                                const containerVariants = {
-                                    hidden: { opacity: 0 },
-                                    visible: {
-                                        opacity: 1,
-                                        transition: { staggerChildren: 0.1 }
-                                    }
-                                };
-
-                                const cardVariants = {
-                                    hidden: { opacity: 0, y: 20, scale: 0.95 },
-                                    visible: {
-                                        opacity: 1,
-                                        y: 0,
-                                        scale: 1,
-                                        transition: { type: "spring", stiffness: 120, damping: 20 }
-                                    },
-                                    hover: {
-                                        scale: 1.02,
-                                        y: -2,
-                                        boxShadow: "0 10px 30px -5px rgba(0,0,0,0.5)",
-                                        zIndex: 10
-                                    }
-                                };
-
-                                return (
-                                    <>
-                                        <motion.div
-                                            variants={containerVariants}
-                                            initial="hidden"
-                                            animate="visible"
-                                            layout
-                                            className="grid grid-cols-1 md:grid-cols-4 gap-4 w-full max-w-7xl mx-auto"
-                                        >
-
-                                            {/* Row 1: Small Metrics Boxes & Attendance */}
-
-                                            {/* Row 1: Performance & Financials */}
-
-                                            {/* 1. My Performance (Rectangular, Clean) */}
-                                            <motion.div layout variants={cardVariants} className="col-span-1 md:col-span-1 bg-[#050505] border border-white/10 rounded-xl p-5 flex flex-col justify-between relative overflow-hidden transition-all shadow-lg">
-                                                <div>
-                                                    <h3 className="text-sm font-semibold text-white mb-4 tracking-wide">My Performance</h3>
-
-                                                    <div className="flex items-end justify-between mb-2">
-                                                        <span className="text-xs text-gray-500 font-medium">Current Score</span>
-                                                        <span className="text-2xl font-bold text-blue-500 tracking-tight">
-                                                            <AnimatedCounter value={performance.performance_score} />
-                                                            <span className="text-sm text-gray-600 ml-0.5">/100</span>
-                                                        </span>
-                                                    </div>
-
-                                                    {/* Linear Progress Bar */}
-                                                    <div className="h-1.5 w-full bg-gray-900 rounded-full overflow-hidden mb-5 border border-white/5">
-                                                        <motion.div
-                                                            className="h-full bg-blue-600 rounded-full shadow-[0_0_10px_rgba(37,99,235,0.5)]"
-                                                            initial={{ width: 0 }}
-                                                            animate={{ width: `${Math.min(performance.performance_score, 100)}%` }}
-                                                            transition={{ duration: 1.5, ease: "easeOut" }}
-                                                        />
-                                                    </div>
-                                                </div>
-
-                                                <div className="grid grid-cols-2 gap-4 mt-auto">
-                                                    <div className="bg-white/5 rounded-lg p-2 border border-white/5">
-                                                        <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-0.5">Tasks Done</div>
-                                                        <div className="text-lg font-mono text-white">{performance.completed_tasks}</div>
-                                                    </div>
-                                                    <div className="bg-white/5 rounded-lg p-2 border border-white/5">
-                                                        <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-0.5">Pending</div>
-                                                        <div className="text-lg font-mono text-gray-300">{tasks.filter(t => t.status === 'pending').length}</div>
-                                                    </div>
-                                                </div>
-                                            </motion.div>
-
-                                            {/* 2. Financials & Efficiency (Clean Card) */}
-                                            <motion.div layout variants={cardVariants} className="col-span-1 md:col-span-1 bg-[#050505] border border-white/10 rounded-xl p-5 flex flex-col justify-between relative overflow-hidden transition-all shadow-lg">
-                                                <div>
-                                                    <h3 className="text-sm font-semibold text-white mb-4 tracking-wide">Financials & Stats</h3>
-
-                                                    <div className="space-y-3">
-                                                        <div className="flex justify-between items-center py-2 border-b border-white/5">
-                                                            <span className="text-xs text-gray-500">Annual Salary (LPA)</span>
-                                                            <span className="text-sm font-mono text-green-400 font-bold tracking-tight">
-                                                                {performance.salary ? `₹ ${performance.salary} LPA` : '₹ -- LPA'}
-                                                            </span>
-                                                        </div>
-                                                        <div className="flex justify-between items-center py-2 border-b border-white/5">
-                                                            <span className="text-xs text-gray-500">Efficiency Score</span>
-                                                            <span className="text-sm font-mono text-white font-bold">{efficiency}%</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                <div className="mt-4 pt-2">
-                                                    <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-2">Today's Status</div>
-                                                    <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${myAttendance?.status === 'present' ? 'bg-green-500/10 border-green-500/20 text-green-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
-                                                        <div className={`w-2 h-2 rounded-full ${myAttendance?.status === 'present' ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
-                                                        <span className="text-xs font-bold tracking-wider">
-                                                            {myAttendance?.status ? myAttendance.status.toUpperCase() : 'ABSENT'}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            </motion.div>
-
-                                            {/* 3. Task List / Active Task (Refined) */}
-                                            <motion.div layout variants={cardVariants} className="col-span-1 md:col-span-2 bg-[#050505] border border-white/10 rounded-xl p-5 flex flex-col relative overflow-hidden group hover:border-white/20 transition-all shadow-lg">
-                                                <div className="flex justify-between items-center mb-4">
-                                                    <h3 className="text-sm font-semibold text-white tracking-wide">Task List</h3>
-                                                    {tasks.filter(t => t.status === 'pending').length > 0 && (
-                                                        <span className="text-[10px] bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded border border-blue-500/30 animate-pulse">
-                                                            Active
-                                                        </span>
+                                <div className="space-y-8">
+                                    <div className="flex flex-col items-center gap-6 mb-8">
+                                        <div className="relative group/avatar">
+                                            <div className="w-28 h-28 rounded-full bg-gradient-to-br from-primary to-blue-600 p-1 shadow-2xl overflow-hidden ring-4 ring-white/5 transition-transform duration-500 group-hover/avatar:scale-105">
+                                                <div className="w-full h-full rounded-full bg-black flex items-center justify-center overflow-hidden">
+                                                    {editProfile.profile_photo ? (
+                                                        <img src={getAvatarUrl(editProfile.profile_photo)} alt="Preview" className="w-full h-full object-cover shadow-inner" />
+                                                    ) : (
+                                                        <span className="text-4xl font-black text-white">{user?.username?.slice(0, 1).toUpperCase()}</span>
                                                     )}
                                                 </div>
+                                            </div>
+                                            <label className="absolute bottom-0 right-0 p-3 bg-blue-600 hover:bg-blue-500 rounded-full shadow-xl cursor-pointer transition-all hover:scale-110 active:scale-90 border border-white/20">
+                                                <FileUp className="w-4 h-4 text-white" />
+                                                <input 
+                                                    type="file" 
+                                                    className="hidden" 
+                                                    onChange={async (e) => {
+                                                        const file = e.target.files[0];
+                                                        if (file) {
+                                                            const formData = new FormData();
+                                                            formData.append('file', file);
+                                                            try {
+                                                                const res = await api.post('/upload', formData);
+                                                                setEditProfile(prev => ({ ...prev, profile_photo: res.data.path }));
+                                                            } catch (err) { alert("Visual upload failure"); }
+                                                        }
+                                                    }}
+                                                />
+                                            </label>
+                                        </div>
+                                        <p className="text-[10px] text-gray-600 font-black uppercase tracking-widest">Authorized system avatar</p>
+                                    </div>
 
-                                                {tasks.filter(t => t.status === 'pending').length > 0 ? (
-                                                    (() => {
-                                                        const activeTask = tasks.filter(t => t.status === 'pending')[0];
-                                                        return (
-                                                            <div className="flex flex-col h-full justify-between">
-                                                                <div className="bg-[#0f0f0f] border border-white/5 rounded-lg p-4 mb-3 hover:bg-[#141414] transition-colors cursor-default">
-                                                                    <div className="flex justify-between items-start mb-2">
-                                                                        <span className="text-sm font-bold text-white max-w-[85%] truncate">{activeTask.title}</span>
-                                                                        <span className="text-[10px] text-gray-600 font-mono">#{activeTask.id}</span>
-                                                                    </div>
-                                                                    <p className="text-xs text-gray-400 line-clamp-2 leading-relaxed">{activeTask.description}</p>
-                                                                </div>
-
-                                                                <button
-                                                                    onClick={() => initiateCompletion(activeTask)}
-                                                                    className="w-full py-2.5 bg-blue-600/10 hover:bg-blue-600/20 border border-blue-600/50 text-blue-400 hover:text-blue-300 text-xs font-bold uppercase tracking-wider rounded-lg transition-all flex items-center justify-center gap-2 group/btn"
-                                                                >
-                                                                    <CheckCircle className="w-3.5 h-3.5 group-hover/btn:scale-110 transition-transform" />
-                                                                    Mark Complete & Attach Files
-                                                                </button>
-                                                            </div>
-                                                        );
-                                                    })()
-                                                ) : (
-                                                    <div className="flex flex-col items-center justify-center h-full text-gray-700 bg-[#0f0f0f] rounded-lg border border-white/5 border-dashed">
-                                                        <CheckCircle className="w-6 h-6 mb-2 opacity-30" />
-                                                        <span className="text-[10px] uppercase tracking-widest font-semibold">No Pending Tasks</span>
-                                                    </div>
-                                                )}
-                                            </motion.div>
-
-
-
-
-                                            {/* Row 2: Graphs & Logs */}
-
-                                            {/* 4. Performance Trend Graph (30-Day Streak) */}
-
-
-
-
-
-                                        </motion.div >
-
-
-                                    </>
-                                );
-                            })() : (
-                                <div className="text-gray-600 text-[10px] animate-pulse tracking-[0.5em] uppercase font-mono w-full text-center mt-20">
-                                    /// SYSTEM_INITIALIZING...
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">System Display Name</label>
+                                            <input
+                                                type="text"
+                                                value={editProfile.display_name}
+                                                onChange={e => setEditProfile(prev => ({ ...prev, display_name: e.target.value }))}
+                                                className="w-full bg-white/[0.03] border border-white/10 p-5 rounded-2xl text-white font-bold placeholder:text-gray-700 outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all shadow-inner"
+                                                placeholder="Mission Identity..."
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Node Communication Email</label>
+                                            <input
+                                                type="email"
+                                                value={editProfile.email}
+                                                onChange={e => setEditProfile(prev => ({ ...prev, email: e.target.value }))}
+                                                className="w-full bg-white/[0.03] border border-white/10 p-5 rounded-2xl text-white font-bold placeholder:text-gray-700 outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all shadow-inner"
+                                                placeholder="node@jourvix.net"
+                                            />
+                                        </div>
+                                    </div>
                                 </div>
-                            )}
-                        </div >
-                    )}
 
-                </div>
-            </div >
-        </motion.div >
+                                <div className="flex gap-4 mt-12">
+                                    <button
+                                        onClick={() => setShowProfileModal(false)}
+                                        className="flex-1 px-8 py-5 border border-white/10 rounded-2xl text-[11px] font-black uppercase tracking-widest text-gray-500 hover:text-white hover:bg-white/5 transition-all active:scale-95"
+                                    >
+                                        Cancel Calibration
+                                    </button>
+                                    <button
+                                        onClick={saveProfile}
+                                        className="flex-3 px-12 py-5 bg-blue-600 border border-blue-500/50 hover:bg-blue-500 text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.3em] shadow-[0_0_30px_rgba(59,130,246,0.2)] hover:shadow-[0_0_50px_rgba(59,130,246,0.4)] transition-all active:scale-95"
+                                    >
+                                        Execute Update
+                                    </button>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </div>,
+                    document.body
+                )}
+            </div>
+        </motion.div>
     );
 }

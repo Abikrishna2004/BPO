@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { AreaChart, Area, XAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import { CheckCircle, Clock, Calendar, ChevronDown, Activity, Trophy, Award, Lock, BarChart3, ArrowLeft, Zap, Shield, UserCog, UserCheck, ChevronRight, Briefcase, Share2, Monitor, GraduationCap, DollarSign, SignalHigh } from 'lucide-react';
 import { CustomSelect, CustomRoleSelect } from '../components/CustomDropdowns';
+import WorkforceAnalyticsHUD from '../components/WorkforceAnalyticsHUD';
 
 export default function EmployeeStats() {
     const { api, user: currentUser } = useAuth();
@@ -71,7 +72,9 @@ export default function EmployeeStats() {
     const fetchAgents = async () => {
         try {
             const response = await api.get('/dashboard/agents');
-            setAgents(response.data);
+            // Filter out admins from the list as requested
+            const agentsOnly = response.data.filter(u => u.role !== 'admin' && u.username !== 'Admin@CJ');
+            setAgents(agentsOnly);
         } catch (error) {
             console.error('Failed to fetch agents', error);
         }
@@ -210,33 +213,40 @@ export default function EmployeeStats() {
                     Workforce Analytics
                 </h2>
             </div>
-
-            {/* --- ADMIN ROLE MANAGEMENT PANEL (Separated) --- */}
+            {/* --- PERSONNEL MANAGEMENT CONSOLE (UNIFIED) --- */}
             {isAdmin && (
-                <div className="max-w-7xl mx-auto mb-12 relative z-50">
+                <div className="max-w-7xl mx-auto mb-16 relative z-50">
                     <motion.div
-                        initial={{ opacity: 0, y: -10 }}
+                        initial={{ opacity: 0, y: -20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="bg-[#0f0f0f] border border-purple-500/20 rounded-3xl p-8 shadow-[0_0_50px_rgba(168,85,247,0.08)] overflow-visible relative"
+                        className="bg-[#0a0a0b] border border-white/10 rounded-[2.5rem] p-8 md:p-12 shadow-2xl relative overflow-visible"
                     >
-                        <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
-                            <Shield className="w-32 h-32 text-purple-500" />
+                        {/* Decorative HUD Elements */}
+                        <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none">
+                            <Shield className="w-48 h-48 text-blue-500" />
                         </div>
+                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-blue-500/30 to-transparent" />
 
-                        <div className="flex items-center gap-3 mb-6 text-purple-400">
-                            <div className="p-2 bg-purple-500/10 rounded-lg">
-                                <UserCog className="w-6 h-6" />
+                        <div className="flex items-center gap-4 mb-10 border-b border-white/5 pb-8">
+                            <div className="p-3 bg-blue-500/10 rounded-2xl border border-blue-500/20">
+                                <UserCog className="w-6 h-6 text-blue-400" />
                             </div>
                             <div>
-                                <h3 className="text-lg font-bold uppercase tracking-widest text-white">Workforce Administration</h3>
-                                <p className="text-xs text-gray-500">Promote, Demote, or Reassign Department Roles</p>
+                                <h3 className="text-2xl font-black uppercase tracking-tight text-white flex items-center gap-3">
+                                    Personnel Management Console
+                                    <span className="text-[10px] px-2 py-0.5 bg-blue-500/10 border border-blue-500/30 text-blue-400 rounded-full font-mono font-bold tracking-[0.2em] animate-pulse">System Active</span>
+                                </h3>
+                                <p className="text-[10px] text-white/30 font-mono uppercase tracking-widest mt-1">Configure asset designation and compensation hierarchy</p>
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end relative z-20">
-                            {/* 1. Select Agent */}
-                            <div className="md:col-span-1 relative z-30">
-                                <label className="block text-[10px] uppercase text-gray-500 font-bold mb-2 ml-1">Select Employee</label>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-10 relative z-20">
+                            {/* Directive 01: Agent */}
+                            <div className="space-y-4 relative z-40">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[8px] font-black text-blue-500 bg-blue-500/10 px-2 py-0.5 rounded-md border border-blue-500/20 uppercase tracking-widest">Directive 01</span>
+                                    <label className="text-[10px] uppercase text-white/40 font-black tracking-widest">Select Agent</label>
+                                </div>
                                 <CustomSelect
                                     options={agents.map(a => ({ value: a.id, label: a.username, sub: a.role }))}
                                     value={selectedAgentId}
@@ -246,116 +256,67 @@ export default function EmployeeStats() {
                                 />
                             </div>
 
-                            {/* 2. Select Role (Premium Dropdown) */}
-                            <div className="md:col-span-2 relative z-30">
-                                <label className="block text-[10px] uppercase text-gray-500 font-bold mb-2 ml-1">Assign New Designation</label>
+                            {/* Directive 02: Designation */}
+                            <div className="space-y-4 relative z-40">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[8px] font-black text-purple-500 bg-purple-500/10 px-2 py-0.5 rounded-md border border-purple-500/20 uppercase tracking-widest">Directive 02</span>
+                                    <label className="text-[10px] uppercase text-white/40 font-black tracking-widest">New Designation</label>
+                                </div>
                                 <CustomRoleSelect
                                     categories={roleCategories}
                                     value={selectedRole}
                                     onChange={setSelectedRole}
-                                    placeholder="Select a new Role..."
+                                    placeholder="Select Role..."
                                     centered={false}
+                                    placement="bottom"
                                 />
-                            </div>
-
-                            {/* 3. Action Button */}
-                            <div className="md:col-span-1 relative z-10">
                                 <button
                                     onClick={handleGlobalRoleUpdate}
                                     disabled={updatingRole || !selectedAgentId || !selectedRole}
-                                    className={`w-full py-3.5 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 border ${selectedAgentId && selectedRole
-                                        ? 'bg-purple-600 hover:bg-purple-500 text-white shadow-[0_0_20px_rgba(147,51,234,0.3)] border-purple-500/50 cursor-pointer hover:-translate-y-0.5'
-                                        : 'bg-white/5 text-gray-500 border-white/5 cursor-not-allowed'
+                                    className={`w-full py-4 rounded-xl font-bold text-[11px] uppercase tracking-widest transition-all flex items-center justify-center gap-3 border ${selectedAgentId && selectedRole
+                                        ? 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-lg shadow-purple-900/40 border-purple-400/30'
+                                        : 'bg-white/5 text-white/10 border-white/5 cursor-not-allowed'
                                         }`}
                                 >
-                                    {updatingRole ? (
-                                        <Activity className="w-4 h-4 animate-spin" />
-                                    ) : (
-                                        <UserCog className="w-4 h-4" />
-                                    )}
-                                    {updatingRole ? 'Processing...' : 'Update Role'}
+                                    {updatingRole ? <Activity className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4" />}
+                                    {updatingRole ? 'Updating' : 'Apply Role'}
                                 </button>
                             </div>
-                        </div>
-                    </motion.div>
 
-
-                    {/* --- FINANCIAL SETTINGS PANEL --- */}
-                    <motion.div
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.1 }}
-                        className="bg-[#0f0f0f] border border-green-500/20 rounded-3xl p-8 shadow-[0_0_50px_rgba(34,197,94,0.08)] overflow-visible relative mt-8"
-                    >
-                        <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
-                            <DollarSign className="w-32 h-32 text-green-500" />
-                        </div>
-
-                        <div className="flex items-center gap-3 mb-6 text-green-400">
-                            <div className="p-2 bg-green-500/10 rounded-lg">
-                                <Activity className="w-6 h-6" />
-                            </div>
-                            <div>
-                                <h3 className="text-lg font-bold uppercase tracking-widest text-white">Financial Compensation</h3>
-                                <p className="text-xs text-gray-500">Manage Annual Packages (LPA) for Employees</p>
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end relative z-20">
-                            {/* 1. Select Agent (Reuse selection if already selected, or separate ui?) */}
-                            {/* It's cleaner to use the same selection state but maybe re-render dropdown? 
-                                 Or just rely on the user having selected above? 
-                                 Let's duplicate the dropdown for clarity if they scroll here directly, 
-                                 OR just say "Selected Agent: X" if active.
-                                 Actually, let's just put the Input and Update button here, linked to `selectedAgentId`.
-                             */}
-                            <div className="md:col-span-1 relative z-30">
-                                <label className="block text-[10px] uppercase text-gray-500 font-bold mb-2 ml-1">Current Selection</label>
-                                <div className="p-3 bg-white/5 border border-white/10 rounded-xl text-sm text-gray-300">
-                                    {selectedAgentId ? agents.find(a => a.id === parseInt(selectedAgentId))?.username || 'Unknown' : 'No Agent Selected'}
+                            {/* Directive 03: Compensation */}
+                            <div className="space-y-4">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[8px] font-black text-green-500 bg-green-500/10 px-2 py-0.5 rounded-md border border-green-500/20 uppercase tracking-widest">Directive 03</span>
+                                    <label className="text-[10px] uppercase text-white/40 font-black tracking-widest">LPA Value</label>
                                 </div>
-                            </div>
-
-                            {/* 2. Salary Input */}
-                            <div className="md:col-span-2 relative z-30">
-                                <label className="block text-[10px] uppercase text-gray-500 font-bold mb-2 ml-1">Annual Salary (LPA)</label>
                                 <div className="relative">
-                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-mono">₹</span>
+                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/10 font-bold">₹</span>
                                     <input
                                         type="number"
                                         step="0.1"
                                         value={salaryInput}
                                         onChange={(e) => setSalaryInput(e.target.value)}
-                                        className="w-full bg-[#1a1a1a] text-white border border-white/10 rounded-xl px-4 py-3 pl-8 focus:outline-none focus:border-green-500/50 transition-colors placeholder-gray-600 font-mono"
+                                        className="w-full bg-white/5 text-white border border-white/10 rounded-xl px-5 py-3.5 pl-8 focus:outline-none focus:border-green-500/40 transition-all font-mono"
                                         placeholder="0.0"
                                     />
-                                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 text-xs font-bold">LPA</span>
+                                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 text-[10px] uppercase font-bold tracking-tighter">LPA</span>
                                 </div>
-                            </div>
-
-                            {/* 3. Update Button */}
-                            <div className="md:col-span-1 relative z-10">
                                 <button
                                     onClick={handleSalaryUpdate}
                                     disabled={updatingSalary || !selectedAgentId}
-                                    className={`w-full py-3.5 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 border ${selectedAgentId
-                                        ? 'bg-green-600 hover:bg-green-500 text-white shadow-[0_0_20px_rgba(34,197,94,0.3)] border-green-500/50 cursor-pointer hover:-translate-y-0.5'
-                                        : 'bg-white/5 text-gray-500 border-white/5 cursor-not-allowed'
+                                    className={`w-full py-4 rounded-xl font-bold text-[11px] uppercase tracking-widest transition-all flex items-center justify-center gap-3 border ${selectedAgentId
+                                        ? 'bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white shadow-lg shadow-emerald-900/40 border-emerald-400/30'
+                                        : 'bg-white/5 text-white/10 border-white/5 cursor-not-allowed'
                                         }`}
                                 >
-                                    {updatingSalary ? (
-                                        <Activity className="w-4 h-4 animate-spin" />
-                                    ) : (
-                                        <DollarSign className="w-4 h-4" />
-                                    )}
-                                    {updatingSalary ? 'Updating...' : 'Set Salary'}
+                                    {updatingSalary ? <Activity className="w-4 h-4 animate-spin text-white" /> : <DollarSign className="w-4 h-4" />}
+                                    {updatingSalary ? 'Calibrating' : 'Set Salary'}
                                 </button>
                             </div>
                         </div>
                     </motion.div>
-                </div >
-            )
-            }
+                </div>
+            )}
 
             <div className="max-w-7xl mx-auto grid gap-6 pb-20 relative z-0">
                 {agents.map((agent, index) => {
@@ -441,15 +402,16 @@ export default function EmployeeStats() {
 
                             <AnimatePresence>
                                 {expandedAgent === agent.id && (
-                                    <StatsDetailPanel
-                                        agent={agent}
-                                        achievements={achievements}
-                                        historyData={historyData}
-                                        loadingHistory={loadingHistory}
-                                        metrics={metrics}
-                                        employeeTasks={employeeTasks}
-                                        parseAttachments={parseAttachments}
-                                    />
+                                <StatsDetailPanel
+                                    agent={agent}
+                                    achievements={achievements}
+                                    historyData={historyData}
+                                    loadingHistory={loadingHistory}
+                                    metrics={metrics}
+                                    employeeTasks={employeeTasks}
+                                    parseAttachments={parseAttachments}
+                                    apiBaseUrl={api.defaults.baseURL}
+                                />
                                 )}
                             </AnimatePresence>
                         </motion.div>
@@ -464,21 +426,15 @@ export default function EmployeeStats() {
 
 
 const calculateMetrics = (agent) => {
-    let performanceScore = Math.round(agent.completed_tasks * 3.5);
-    let baseEfficiency = 25;
-    let xp = (agent.completed_tasks * 15) + ((agent.attendance_rate || 0) * 0.5);
+    // Performance score is directly from backend's performance_score (XP)
+    const performanceScore = agent.performance_score || 0;
+    
+    // Efficiency is level + progress/100 (e.g., 25.95 means Level 25, 95% progress)
+    const efficiency = agent.efficiency || 0;
+    const level = Math.floor(efficiency);
+    const progress = Math.round((efficiency % 1) * 100);
 
-    if (agent.attendance_rate > 50 && agent.completed_tasks < 1) {
-        xp -= 50;
-    }
-
-    xp = Math.max(0, xp);
-    const xpPerPoint = 100;
-    const pointsGained = Math.floor(xp / xpPerPoint);
-    let efficiency = Math.min(100, baseEfficiency + pointsGained);
-    const progress = ((xp % xpPerPoint) / xpPerPoint) * 100;
-
-    return { performanceScore, efficiency, progress, pointsGained };
+    return { performanceScore, efficiency, progress, level };
 }
 
 function getAttendanceColor(rate) {
@@ -487,192 +443,28 @@ function getAttendanceColor(rate) {
     return 'text-red-400';
 }
 
-function StatsDetailPanel({ agent, achievements, historyData, loadingHistory, metrics, employeeTasks, parseAttachments }) {
+function StatsDetailPanel({ agent, achievements, historyData, loadingHistory, metrics, employeeTasks, parseAttachments, apiBaseUrl }) {
 
     return (
         <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="border-t border-white/10 bg-[#080808] relative z-0 shadow-inner"
+            className="border-t border-white/10 bg-[#080808] relative z-0 shadow-inner overflow-hidden"
         >
-
-            <div className="p-6 md:p-8 grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-                <div className="lg:col-span-1 space-y-4">
-                    <div className="bg-[#0f0f0f] rounded-2xl border border-white/5 p-6 relative overflow-hidden group hover:border-blue-500/20 transition-colors h-[220px] flex flex-col justify-between">
-                        <div className="absolute inset-0 bg-gradient-to-br from-blue-600/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-
-                        <div>
-                            <div className="flex justify-between items-start mb-2 relative z-10">
-                                <div>
-                                    <h4 className="text-gray-400 text-[10px] font-bold uppercase tracking-widest">Efficiency Engine</h4>
-                                    <p className="text-[10px] text-gray-500">Based on Task Velocity</p>
-                                </div>
-                                <Activity className={`w-4 h-4 text-blue-500`} />
-                            </div>
-
-                            <div className="flex items-end gap-2 mb-1 relative z-10">
-                                <span className="text-6xl font-black text-white tracking-tighter">{metrics.efficiency}</span>
-                                <span className="text-2xl font-medium text-gray-500 mb-1.5">%</span>
-                            </div>
-                        </div>
-
-                        <div className="relative z-10">
-                            <div className="flex justify-between text-[10px] text-gray-400 mb-1.5 font-mono uppercase tracking-wider">
-                                <span className="flex items-center gap-1">
-                                    <Zap className="w-3 h-3 text-yellow-500" />
-                                    Next Level
-                                </span>
-                                <span>{Math.round(metrics.progress)}%</span>
-                            </div>
-                            <div className="h-2.5 w-full bg-gray-800 rounded-full overflow-hidden border border-white/5 relative">
-                                <div className="absolute inset-0 z-0 opacity-20 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNCIgaGVpZ2h0PSI0IiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxwYXRoIGQ9Ik0gMCA0IEwgNCAwIiBzdHJva2U9IiNmZmYiIHN0cm9rZS13aWR0aD0iMSIvPjwvc3ZnPg==')]"></div>
-                                <motion.div
-                                    initial={{ width: 0 }}
-                                    animate={{ width: `${metrics.progress}%` }}
-                                    transition={{ duration: 1.5, type: "spring", stiffness: 50 }}
-                                    className="h-full bg-gradient-to-r from-blue-600 via-cyan-500 to-white relative z-10"
-                                >
-                                    <div className="absolute top-0 right-0 h-full w-2 bg-white/50 blur-[2px]" />
-                                </motion.div>
-                            </div>
-                            <div className="mt-2 text-[9px] text-gray-500">
-                                +3.5 pts avg per task completion.
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                        <StatCard icon={CheckCircle} label="Tasks" value={agent.completed_tasks} glow="blue" delay={0.1} />
-                        <StatCard icon={Clock} label="Pending" value={agent.pending_tasks} color="text-amber-400" glow="yellow" delay={0.2} />
-                    </div>
-                </div>
-
-                <div className="lg:col-span-1 bg-[#0f0f0f] rounded-2xl border border-white/5 flex flex-col hover:border-white/10 transition-all duration-500 group relative overflow-hidden shadow-2xl h-[340px]">
-                    <div className="p-4 border-b border-white/5 relative z-10 flex justify-between items-center bg-white/[0.02]">
-                        <h4 className="text-xs font-bold flex items-center gap-2 text-white tracking-wide uppercase">
-                            <Trophy className="w-3.5 h-3.5 text-yellow-500" />
-                            Achievements
-                        </h4>
-                        <span className="text-[10px] bg-yellow-500/10 text-yellow-500 px-2 py-0.5 rounded border border-yellow-500/20 font-mono">
-                            {achievements.length} UNLOCKED
-                        </span>
-                    </div>
-
-                    <div className="p-3 space-y-2 flex-grow overflow-y-auto custom-scrollbar relative z-10">
-                        {achievements.length > 0 ? achievements.map((ach) => (
-                            <div key={ach.id} className="relative group/card flex items-center gap-3 bg-black/40 rounded-lg border border-white/5 p-2.5 hover:border-yellow-500/30 transition-all group/item">
-                                <div className="p-2 bg-yellow-500/10 rounded-md text-yellow-400 group-hover/item:scale-110 transition-transform">
-                                    <Award className="w-4 h-4" />
-                                </div>
-                                <div className="min-w-0 flex-grow">
-                                    <div className="text-xs font-bold text-gray-200 truncate group-hover/item:text-yellow-400 transition-colors">{ach.title}</div>
-                                    <div className="text-[9px] text-gray-500 truncate">{ach.description}</div>
-                                </div>
-                                {ach.amount && (
-                                    <div className="text-[10px] font-mono text-emerald-400 whitespace-nowrap px-2 py-1 bg-emerald-500/5 rounded border border-emerald-500/10">
-                                        ₹{ach.amount}
-                                    </div>
-                                )}
-                            </div>
-                        )) : (
-                            <div className="flex flex-col items-center justify-center h-full text-center opacity-40">
-                                <Lock className="w-8 h-8 text-gray-500 mb-2" />
-                                <span className="text-[10px] text-gray-400">VAULT LOCKED</span>
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                <div className="space-y-4 lg:col-span-1">
-                    <div className="bg-[#0f0f0f] rounded-2xl border border-white/5 p-4 relative overflow-hidden group h-[160px] flex flex-col">
-                        <h4 className="text-[10px] font-bold mb-2 text-gray-400 flex items-center gap-2 uppercase tracking-wider z-10">
-                            <BarChart3 className="w-3.5 h-3.5 text-purple-500" />
-                            Task Output Trends
-                        </h4>
-                        <div className="flex-grow w-full relative z-10">
-                            {!loadingHistory ? (
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <AreaChart data={historyData}>
-                                        <defs>
-                                            <linearGradient id="colorDrift" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.8} />
-                                                <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
-                                            </linearGradient>
-                                        </defs>
-                                        <Tooltip contentStyle={{ background: '#000', border: '1px solid #333', fontSize: '10px' }} itemStyle={{ color: '#fff' }} cursor={{ stroke: '#666', strokeWidth: 1 }} />
-                                        <Area type="monotone" dataKey="tasks" stroke="#8b5cf6" fill="url(#colorDrift)" strokeWidth={2} />
-                                    </AreaChart>
-                                </ResponsiveContainer>
-                            ) : <div className="h-full flex items-center justify-center text-[10px] text-gray-600 animate-pulse">LOADING FEED...</div>}
-                        </div>
-                    </div>
-
-                    <div className="bg-[#0f0f0f] rounded-2xl border border-white/5 p-4 relative overflow-hidden group h-[160px] flex flex-col">
-                        <h4 className="text-[10px] font-bold mb-2 text-gray-400 flex items-center gap-2 uppercase tracking-wider z-10">
-                            <Calendar className="w-3.5 h-3.5 text-emerald-500" />
-                            Attendance Graph
-                        </h4>
-                        <div className="flex items-end justify-between gap-0.5 h-full pt-2 relative z-10 w-full">
-                            {!loadingHistory && historyData.map((day, i) => (
-                                <div key={i} className="flex-1 flex flex-col justify-end items-center group/tooltip relative h-full">
-                                    <div className={`w-full max-w-[4px] rounded-t-sm transition-all duration-300 ${day.attendance === 'present' ? 'h-[70%] bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.3)]' :
-                                        day.attendance === 'absent' ? 'h-[20%] bg-red-900/50' : 'h-px bg-white/5'
-                                        }`} />
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-
-                {/* --- DETAILED RECORDS & DOCUMENTATION (Full Width) --- */}
-                <div className="lg:col-span-3 bg-[#0f0f0f] rounded-2xl border border-white/5 overflow-hidden flex flex-col shadow-2xl relative">
-                    <div className="p-4 border-b border-white/5 bg-black/40 backdrop-blur-md flex justify-between items-center z-10 sticky top-0">
-                        <h4 className="text-xs font-bold flex items-center gap-3 text-white uppercase tracking-wider">
-                            <div className="p-1.5 bg-primary/10 rounded-lg text-primary">
-                                <Activity className="w-4 h-4" />
-                            </div>
-                            Daily Productivity & Attendance Log
-                        </h4>
-                    </div>
-
-                    <div className="p-4 md:p-6 overflow-y-auto max-h-[400px] custom-scrollbar relative z-0 space-y-4">
-                        {[...historyData].reverse().map((day, i) => (
-                            <div key={i} className="flex items-start gap-4 p-4 rounded-xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.04] transition-colors">
-                                <div className={`mt-1 w-2 h-2 rounded-full ${day.attendance === 'present' ? 'bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.5)]' :
-                                    'bg-red-500 shadow-[0_0_5px_rgba(239,68,68,0.5)]'
-                                    }`} />
-                                <div className="flex-grow">
-                                    <div className="flex items-center justify-between mb-2">
-                                        <span className="font-mono text-sm text-gray-300">{day.date}</span>
-                                        <span className={`text-[10px] px-2 py-0.5 rounded uppercase font-bold tracking-wider ${day.attendance === 'present' ? 'text-emerald-400 bg-emerald-500/10' : 'text-red-400 bg-red-500/10'
-                                            }`}>
-                                            {day.attendance}
-                                        </span>
-                                    </div>
-
-                                    {day.tasks > 0 ? (
-                                        <div className="space-y-2">
-                                            {day.task_details && day.task_details.map((t, idx) => (
-                                                <div key={idx} className="flex items-center gap-2 text-xs text-gray-400">
-                                                    <CheckCircle className="w-3 h-3 text-blue-500" />
-                                                    <span className="text-gray-300">{t.title}</span>
-                                                    {t.project_title && <span className="text-[9px] px-1.5 py-0.5 bg-white/5 rounded text-gray-500 uppercase">{t.project_title}</span>}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <div className="text-xs text-gray-600 italic">No tasks recorded for this day.</div>
-                                    )}
-                                </div>
-                            </div>
-                        ))}
-                        {historyData.length === 0 && (
-                            <div className="text-center py-8 text-gray-500 text-xs">No historical data available.</div>
-                        )}
-                    </div>
-                </div>
+            <div className="p-10">
+                <WorkforceAnalyticsHUD 
+                    targetUser={agent}
+                    perfData={{
+                        efficiency: metrics.efficiency,
+                        attendance_rate: agent.attendance_rate,
+                        completed_tasks: agent.completed_tasks
+                    }}
+                    tasksData={employeeTasks}
+                    getAvatarUrl={(path) => path ? `${apiBaseUrl.replace('/api', '')}/uploads/${path}` : null}
+                    completeTask={() => {}}
+                    isAdminView={true}
+                />
             </div>
         </motion.div >
     );
