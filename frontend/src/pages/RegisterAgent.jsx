@@ -149,12 +149,11 @@ export default function RegisterAgent() {
                             categories={roleCategories}
                             value={formData.role}
                             onChange={(role) => setFormData({ ...formData, role: role })}
-                            dropup={true}
                         />
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="flex gap-4 pt-4 mt-2 relative z-10">
+                    <div className="flex gap-4 pt-4 mt-2">
                         <button
                             type="button"
                             onClick={() => navigate('/')}
