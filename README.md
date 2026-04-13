@@ -3,16 +3,17 @@
 ## Project Identity
 **Application Name:** Jourvix  
 **Theme:** Futuristic Anti-Gravity UI (Dark Mode, Neon, Glassmorphism)  
-**Stack:** Python (FastAPI), React.js (Vite + Tailwind), SQLite/PostgreSQL
+**Stack:** Python (FastAPI), React.js (Vite + Tailwind), MongoDB
 
+## Prerequisites
 - Python 3.8+
 - Node.js 16+
-- SQLite (default) or PostgreSQL
+- MongoDB installed and running on `localhost:27017`
 
 ## Setup Instructions
 
-### 1. Environment Configuration
-Copy the `.env.example` files in both `backend/` and `frontend/` to `.env` and configure your credentials.
+### 1. Database Setup
+Ensure MongoDB is running locally. The application connects to `mongodb://localhost:27017/BPO_Management` by default.
 
 ### 2. Backend Setup
 1. Open a terminal.

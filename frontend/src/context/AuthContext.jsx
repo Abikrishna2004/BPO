@@ -11,7 +11,7 @@ export const AuthProvider = ({ children }) => {
 
     // Configure axios base URL
     const api = axios.create({
-        baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000/api',
+        baseURL: 'http://localhost:8000/api',
     });
 
     // Add token to requests if exists
@@ -22,18 +22,6 @@ export const AuthProvider = ({ children }) => {
         }
         return config;
     });
-
-    // Handle 401 responses globally
-    api.interceptors.response.use(
-        (response) => response,
-        (error) => {
-            if (error.response && error.response.status === 401) {
-                localStorage.removeItem('token');
-                setUser(null);
-            }
-            return Promise.reject(error);
-        }
-    );
 
     useEffect(() => {
         const checkUser = async () => {
@@ -66,15 +54,7 @@ export const AuthProvider = ({ children }) => {
         return userResponse.data;
     };
 
-    const logout = async () => {
-        const token = localStorage.getItem('token');
-        if (token) {
-            try {
-                await api.post('/logout');
-            } catch (error) {
-                console.error("Logout error", error);
-            }
-        }
+    const logout = () => {
         localStorage.removeItem('token');
         setUser(null);
     };

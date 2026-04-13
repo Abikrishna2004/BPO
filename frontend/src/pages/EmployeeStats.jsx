@@ -20,18 +20,10 @@ export default function EmployeeStats() {
 
     // Admin Role Management State
     const [selectedAgentId, setSelectedAgentId] = useState('');
-    const [selectedFinancialAgentId, setSelectedFinancialAgentId] = useState('');
     const [selectedRole, setSelectedRole] = useState('');
     const [salaryInput, setSalaryInput] = useState('');
     const [updatingRole, setUpdatingRole] = useState(false);
     const [updatingSalary, setUpdatingSalary] = useState(false);
-
-    // Award Management State
-    const [selectedAwardAgentId, setSelectedAwardAgentId] = useState('');
-    const [awardTitle, setAwardTitle] = useState('');
-    const [awardDescription, setAwardDescription] = useState('');
-    const [awardAmount, setAwardAmount] = useState('');
-    const [awarding, setAwarding] = useState(false);
 
     // Records Modal State
     const [showRecordsModal, setShowRecordsModal] = useState(false);
@@ -94,9 +86,9 @@ export default function EmployeeStats() {
         setLoadingHistory(true);
         try {
             const [achRes, histRes, tasksRes] = await Promise.all([
-                api.get(`/users/${agentId}/achievements`),
-                api.get(`/performance/${agentId}/history`),
-                api.get(`/tasks/user/${agentId}`)
+                api.get(`/users/${agentId}/achievements`).catch(e => { console.error(e); return { data: [] }; }),
+                api.get(`/performance/${agentId}/history`).catch(e => { console.error(e); return { data: [] }; }),
+                api.get(`/tasks/user/${agentId}`).catch(e => { console.error(e); return { data: [] }; })
             ]);
             setAchievements(achRes.data);
             setHistoryData(histRes.data);
@@ -131,15 +123,15 @@ export default function EmployeeStats() {
     };
 
     const handleSalaryUpdate = async () => {
-        if (!selectedFinancialAgentId) return alert("Please select an agent.");
+        if (!selectedAgentId) return alert("Please select an agent.");
         if (!salaryInput) return alert("Enter salary.");
 
         setUpdatingSalary(true);
         try {
-            await api.put(`/users/${selectedFinancialAgentId}/salary`, { salary: parseFloat(salaryInput) });
+            await api.put(`/users/${selectedAgentId}/salary`, { salary: parseFloat(salaryInput) });
 
             // Optimistic Update
-            setAgents(prev => prev.map(a => a.id === parseInt(selectedFinancialAgentId) ? { ...a, salary: parseFloat(salaryInput) } : a));
+            setAgents(prev => prev.map(a => a.id === parseInt(selectedAgentId) ? { ...a, salary: parseFloat(salaryInput) } : a));
 
             alert(`Salary updated to: ₹ ${salaryInput} LPA`);
             // Keep selection but clear input or keep it? Keep it showing current.
@@ -151,6 +143,7 @@ export default function EmployeeStats() {
         }
     };
 
+    // Auto-fill salary when agent selected
     useEffect(() => {
         if (selectedAgentId) {
             const agent = agents.find(a => a.id === parseInt(selectedAgentId));
@@ -161,32 +154,6 @@ export default function EmployeeStats() {
             setSalaryInput('');
         }
     }, [selectedAgentId, agents]);
-
-    const handleAwardSubmit = async () => {
-        if (!selectedAwardAgentId) return alert("Please select an employee.");
-        if (!awardTitle) return alert("Enter an award title.");
-
-        setAwarding(true);
-        try {
-            await api.post(`/users/${selectedAwardAgentId}/achievements`, {
-                title: awardTitle,
-                description: awardDescription || 'Outstanding Performance',
-                type: 'award',
-                amount: awardAmount ? parseFloat(awardAmount) : null
-            });
-
-            alert(`Award successfully given!`);
-            setSelectedAwardAgentId('');
-            setAwardTitle('');
-            setAwardDescription('');
-            setAwardAmount('');
-        } catch (error) {
-            console.error("Failed to give award", error);
-            alert("Failed to give award. Please try again.");
-        } finally {
-            setAwarding(false);
-        }
-    };
 
     const isAdmin = currentUser?.role === 'admin' || currentUser?.username === 'Admin@CJ';
 
@@ -250,7 +217,7 @@ export default function EmployeeStats() {
                     <motion.div
                         initial={{ opacity: 0, y: -10 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="relative z-50 bg-[#0f0f0f] border border-purple-500/20 rounded-3xl p-8 shadow-[0_0_50px_rgba(168,85,247,0.08)] overflow-visible"
+                        className="bg-[#0f0f0f] border border-purple-500/20 rounded-3xl p-8 shadow-[0_0_50px_rgba(168,85,247,0.08)] overflow-visible relative"
                     >
                         <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
                             <Shield className="w-32 h-32 text-purple-500" />
@@ -318,7 +285,7 @@ export default function EmployeeStats() {
                         initial={{ opacity: 0, y: -10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.1 }}
-                        className="relative z-40 bg-[#0f0f0f] border border-green-500/20 rounded-3xl p-8 shadow-[0_0_50px_rgba(34,197,94,0.08)] overflow-visible mt-8"
+                        className="bg-[#0f0f0f] border border-green-500/20 rounded-3xl p-8 shadow-[0_0_50px_rgba(34,197,94,0.08)] overflow-visible relative mt-8"
                     >
                         <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
                             <DollarSign className="w-32 h-32 text-green-500" />
@@ -335,15 +302,18 @@ export default function EmployeeStats() {
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end relative z-20">
+                            {/* 1. Select Agent (Reuse selection if already selected, or separate ui?) */}
+                            {/* It's cleaner to use the same selection state but maybe re-render dropdown? 
+                                 Or just rely on the user having selected above? 
+                                 Let's duplicate the dropdown for clarity if they scroll here directly, 
+                                 OR just say "Selected Agent: X" if active.
+                                 Actually, let's just put the Input and Update button here, linked to `selectedAgentId`.
+                             */}
                             <div className="md:col-span-1 relative z-30">
-                                <label className="block text-[10px] uppercase text-gray-500 font-bold mb-2 ml-1">Select Employee</label>
-                                <CustomSelect
-                                    options={agents.map(a => ({ value: a.id, label: a.username, sub: a.role }))}
-                                    value={selectedFinancialAgentId}
-                                    onChange={setSelectedFinancialAgentId}
-                                    placeholder="Choose Agent..."
-                                    icon={UserCheck}
-                                />
+                                <label className="block text-[10px] uppercase text-gray-500 font-bold mb-2 ml-1">Current Selection</label>
+                                <div className="p-3 bg-white/5 border border-white/10 rounded-xl text-sm text-gray-300">
+                                    {selectedAgentId ? agents.find(a => a.id === parseInt(selectedAgentId))?.username || 'Unknown' : 'No Agent Selected'}
+                                </div>
                             </div>
 
                             {/* 2. Salary Input */}
@@ -367,8 +337,8 @@ export default function EmployeeStats() {
                             <div className="md:col-span-1 relative z-10">
                                 <button
                                     onClick={handleSalaryUpdate}
-                                    disabled={updatingSalary || !selectedFinancialAgentId}
-                                    className={`w-full py-3.5 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 border ${selectedFinancialAgentId
+                                    disabled={updatingSalary || !selectedAgentId}
+                                    className={`w-full py-3.5 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 border ${selectedAgentId
                                         ? 'bg-green-600 hover:bg-green-500 text-white shadow-[0_0_20px_rgba(34,197,94,0.3)] border-green-500/50 cursor-pointer hover:-translate-y-0.5'
                                         : 'bg-white/5 text-gray-500 border-white/5 cursor-not-allowed'
                                         }`}
@@ -383,86 +353,7 @@ export default function EmployeeStats() {
                             </div>
                         </div>
                     </motion.div>
-
-                    {/* --- EMPLOYEE RECOGNITION & AWARDS PANEL --- */}
-                    <motion.div
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.2 }}
-                        className="relative z-30 bg-[#0f0f0f] border border-yellow-500/20 rounded-3xl p-8 shadow-[0_0_50px_rgba(234,179,8,0.08)] overflow-visible mt-8"
-                    >
-                        <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
-                            <Trophy className="w-32 h-32 text-yellow-500" />
-                        </div>
-
-                        <div className="flex items-center gap-3 mb-6 text-yellow-400">
-                            <div className="p-2 bg-yellow-500/10 rounded-lg">
-                                <Award className="w-6 h-6" />
-                            </div>
-                            <div>
-                                <h3 className="text-lg font-bold uppercase tracking-widest text-white">Employee Recognition</h3>
-                                <p className="text-xs text-gray-500">Manually Award Achievements & Bonuses</p>
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end relative z-20">
-                            {/* 1. Select Agent */}
-                            <div className="md:col-span-1 relative z-30">
-                                <label className="block text-[10px] uppercase text-gray-500 font-bold mb-2 ml-1">Select Employee</label>
-                                <CustomSelect
-                                    options={agents.map(a => ({ value: a.id, label: a.username, sub: a.role }))}
-                                    value={selectedAwardAgentId}
-                                    onChange={setSelectedAwardAgentId}
-                                    placeholder="Choose Agent..."
-                                    icon={UserCheck}
-                                />
-                            </div>
-
-                            {/* 2. Title & Amount Inputs */}
-                            <div className="md:col-span-2 grid grid-cols-2 gap-4 relative z-20">
-                                <div>
-                                    <label className="block text-[10px] uppercase text-gray-500 font-bold mb-2 ml-1">Award Title</label>
-                                    <input
-                                        type="text"
-                                        value={awardTitle}
-                                        onChange={(e) => setAwardTitle(e.target.value)}
-                                        className="w-full bg-[#1a1a1a] text-white border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-yellow-500/50 transition-colors placeholder-gray-600"
-                                        placeholder="e.g., Employee of the Month"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-[10px] uppercase text-gray-500 font-bold mb-2 ml-1">Bonus Amount (₹)</label>
-                                    <input
-                                        type="number"
-                                        value={awardAmount}
-                                        onChange={(e) => setAwardAmount(e.target.value)}
-                                        className="w-full bg-[#1a1a1a] text-white border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-yellow-500/50 transition-colors placeholder-gray-600 font-mono"
-                                        placeholder="Optional..."
-                                    />
-                                </div>
-                            </div>
-
-                            {/* 3. Action Button */}
-                            <div className="md:col-span-1 relative z-10">
-                                <button
-                                    onClick={handleAwardSubmit}
-                                    disabled={awarding || !selectedAwardAgentId || !awardTitle}
-                                    className={`w-full py-3.5 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 border ${selectedAwardAgentId && awardTitle
-                                        ? 'bg-yellow-600 hover:bg-yellow-500 text-black shadow-[0_0_20px_rgba(234,179,8,0.3)] border-yellow-500/50 cursor-pointer hover:-translate-y-0.5'
-                                        : 'bg-white/5 text-gray-500 border-white/5 cursor-not-allowed'
-                                        }`}
-                                >
-                                    {awarding ? (
-                                        <Activity className="w-4 h-4 animate-spin text-black" />
-                                    ) : (
-                                        <Trophy className="w-4 h-4" />
-                                    )}
-                                    {awarding ? 'Awarding...' : 'Give Award'}
-                                </button>
-                            </div>
-                        </div>
-                    </motion.div>
-                </div>
+                </div >
             )
             }
 
@@ -573,19 +464,21 @@ export default function EmployeeStats() {
 
 
 const calculateMetrics = (agent) => {
-    // Rely on the comprehensive backend efficiency and performance calculations
-    const performanceScore = agent.performance_score || 0;
-    const efficiency = agent.efficiency || 0;
+    let performanceScore = Math.round(agent.completed_tasks * 3.5);
+    let baseEfficiency = 25;
+    let xp = (agent.completed_tasks * 15) + ((agent.attendance_rate || 0) * 0.5);
 
-    // Use the decimal part for the progress bar to the next whole number level
-    const progress = (efficiency % 1) * 100;
+    if (agent.attendance_rate > 50 && agent.completed_tasks < 1) {
+        xp -= 50;
+    }
 
-    return {
-        performanceScore,
-        efficiency: Math.floor(efficiency),
-        progress: Number.isNaN(progress) ? 0 : progress,
-        pointsGained: 0
-    };
+    xp = Math.max(0, xp);
+    const xpPerPoint = 100;
+    const pointsGained = Math.floor(xp / xpPerPoint);
+    let efficiency = Math.min(100, baseEfficiency + pointsGained);
+    const progress = ((xp % xpPerPoint) / xpPerPoint) * 100;
+
+    return { performanceScore, efficiency, progress, pointsGained };
 }
 
 function getAttendanceColor(rate) {
@@ -614,7 +507,7 @@ function StatsDetailPanel({ agent, achievements, historyData, loadingHistory, me
                             <div className="flex justify-between items-start mb-2 relative z-10">
                                 <div>
                                     <h4 className="text-gray-400 text-[10px] font-bold uppercase tracking-widest">Efficiency Engine</h4>
-                                    <p className="text-[10px] text-gray-500">Based on Reliability & Deadlines</p>
+                                    <p className="text-[10px] text-gray-500">Based on Task Velocity</p>
                                 </div>
                                 <Activity className={`w-4 h-4 text-blue-500`} />
                             </div>
@@ -645,7 +538,7 @@ function StatsDetailPanel({ agent, achievements, historyData, loadingHistory, me
                                 </motion.div>
                             </div>
                             <div className="mt-2 text-[9px] text-gray-500">
-                                High Efficiency Leads to Promotions.
+                                +3.5 pts avg per task completion.
                             </div>
                         </div>
                     </div>
@@ -698,9 +591,9 @@ function StatsDetailPanel({ agent, achievements, historyData, loadingHistory, me
                             <BarChart3 className="w-3.5 h-3.5 text-purple-500" />
                             Task Output Trends
                         </h4>
-                        <div className="flex-grow w-full relative z-10 min-h-[100px]">
+                        <div className="flex-grow w-full relative z-10">
                             {!loadingHistory ? (
-                                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+                                <ResponsiveContainer width="100%" height="100%">
                                     <AreaChart data={historyData}>
                                         <defs>
                                             <linearGradient id="colorDrift" x1="0" y1="0" x2="0" y2="1">

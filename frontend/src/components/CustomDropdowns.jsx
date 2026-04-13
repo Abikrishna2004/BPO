@@ -39,7 +39,7 @@ const itemVariants = {
 };
 
 // --- Custom Select (Advanced with Search) ---
-export function CustomSelect({ options, value, onChange, placeholder, icon: Icon, centered = false, dropup = false }) {
+export function CustomSelect({ options, value, onChange, placeholder, icon: Icon, centered = false }) {
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
     const containerRef = useRef(null);
@@ -99,7 +99,7 @@ export function CustomSelect({ options, value, onChange, placeholder, icon: Icon
                         initial="hidden"
                         animate="visible"
                         exit="exit"
-                        className={`absolute ${dropup ? 'bottom-[calc(100%+8px)] origin-bottom' : 'top-[calc(100%+8px)] origin-top'} left-0 w-full bg-[#09090b]/95 border border-white/10 rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.5)] overflow-hidden z-[9999] ring-1 ring-white/5 backdrop-blur-3xl`}
+                        className="absolute top-[calc(100%+8px)] left-0 w-full bg-[#09090b]/95 border border-white/10 rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.5)] overflow-hidden z-[9999] ring-1 ring-white/5 backdrop-blur-3xl origin-top"
                     >
                         {/* Search Bar (Only if > 5 options or specifically requested, doing always for now for "advanced" feel) */}
                         <div className="p-3 border-b border-white/10 bg-white/5">
@@ -155,7 +155,7 @@ export function CustomSelect({ options, value, onChange, placeholder, icon: Icon
 }
 
 // --- Custom Role Select (Categorized with Advanced UI) ---
-export function CustomRoleSelect({ categories, value, onChange, placeholder, centered = true, dropup = false }) {
+export function CustomRoleSelect({ categories, value, onChange, placeholder, centered = true }) {
     const [isOpen, setIsOpen] = useState(false);
     const containerRef = useRef(null);
 
@@ -180,7 +180,7 @@ export function CustomRoleSelect({ categories, value, onChange, placeholder, cen
     const currentCat = findRoleCategory(value);
 
     return (
-        <div ref={containerRef} className="relative w-full z-50">
+        <div ref={containerRef} className="relative w-full z-40">
             <button
                 type="button"
                 onClick={() => setIsOpen(!isOpen)}
@@ -209,34 +209,32 @@ export function CustomRoleSelect({ categories, value, onChange, placeholder, cen
                         initial="hidden"
                         animate="visible"
                         exit="exit"
-                        className={`absolute ${dropup ? 'bottom-[calc(100%+8px)] origin-bottom' : 'top-[calc(100%+8px)] origin-top'} left-0 w-full bg-[#09090b]/95 border border-white/10 rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.5)] overflow-hidden z-[9999] ring-1 ring-white/5 backdrop-blur-3xl`}
+                        className="absolute top-[calc(100%+8px)] left-0 w-full bg-[#09090b]/95 border border-white/10 rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.5)] overflow-hidden z-[9999] max-h-[300px] overflow-y-auto custom-scrollbar ring-1 ring-white/5 backdrop-blur-3xl origin-top"
                     >
-                        <div className="max-h-[300px] overflow-y-auto custom-scrollbar w-full">
-                            {categories.map((cat, idx) => (
-                                <motion.div key={idx} variants={itemVariants} className="border-b border-white/5 last:border-0 relative">
-                                    <div className={`sticky top-0 bg-[#09090b]/90 backdrop-blur-md px-4 py-2 text-[10px] font-bold uppercase text-gray-500 tracking-wider flex items-center gap-2 z-20 border-b border-white/5 ${centered ? 'justify-center' : ''}`}>
-                                        {cat.icon && <cat.icon className="w-3 h-3 text-primary/50" />}
-                                        {cat.title}
-                                    </div>
+                        {categories.map((cat, idx) => (
+                            <motion.div key={idx} variants={itemVariants} className="border-b border-white/5 last:border-0 relative">
+                                <div className={`sticky top-0 bg-[#09090b]/90 backdrop-blur-md px-4 py-2 text-[10px] font-bold uppercase text-gray-500 tracking-wider flex items-center gap-2 z-20 border-b border-white/5 ${centered ? 'justify-center' : ''}`}>
+                                    {cat.icon && <cat.icon className="w-3 h-3 text-primary/50" />}
+                                    {cat.title}
+                                </div>
 
-                                    <div className="p-2 space-y-1 relative z-0">
-                                        {cat.roles.map((role) => (
-                                            <motion.div
-                                                key={role}
-                                                layout
-                                                onClick={() => { onChange(role); setIsOpen(false); }}
-                                                className={`px-4 py-3 rounded-xl cursor-pointer flex items-center group transition-all duration-200 relative overflow-hidden ${role === value ? 'bg-primary/20 text-primary ring-1 ring-primary/30 shadow-[0_0_15px_rgba(59,130,246,0.1)]' : 'hover:bg-white/10 text-gray-400 hover:text-white'} ${centered ? 'justify-center' : 'justify-between'}`}
-                                            >
-                                                {role === value && <motion.div layoutId="activeRoleSelect" className="absolute inset-0 bg-primary/10" />}
-                                                <span className="text-sm font-medium relative z-10">{role}</span>
-                                                {role === value && centered && <CheckCircle className="w-4 h-4 text-primary ml-2 relative z-10" />}
-                                                {role === value && !centered && <CheckCircle className="w-4 h-4 text-primary relative z-10" />}
-                                            </motion.div>
-                                        ))}
-                                    </div>
-                                </motion.div>
-                            ))}
-                        </div>
+                                <div className="p-2 space-y-1 relative z-0">
+                                    {cat.roles.map((role) => (
+                                        <motion.div
+                                            key={role}
+                                            layout
+                                            onClick={() => { onChange(role); setIsOpen(false); }}
+                                            className={`px-4 py-3 rounded-xl cursor-pointer flex items-center group transition-all duration-200 relative overflow-hidden ${role === value ? 'bg-primary/20 text-primary ring-1 ring-primary/30 shadow-[0_0_15px_rgba(59,130,246,0.1)]' : 'hover:bg-white/10 text-gray-400 hover:text-white'} ${centered ? 'justify-center' : 'justify-between'}`}
+                                        >
+                                            {role === value && <motion.div layoutId="activeRoleSelect" className="absolute inset-0 bg-primary/10" />}
+                                            <span className="text-sm font-medium relative z-10">{role}</span>
+                                            {role === value && centered && <CheckCircle className="w-4 h-4 text-primary ml-2 relative z-10" />}
+                                            {role === value && !centered && <CheckCircle className="w-4 h-4 text-primary relative z-10" />}
+                                        </motion.div>
+                                    ))}
+                                </div>
+                            </motion.div>
+                        ))}
                     </motion.div>
                 )}
             </AnimatePresence>

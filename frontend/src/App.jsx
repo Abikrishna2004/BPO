@@ -4,7 +4,6 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import RegisterAgent from './pages/RegisterAgent';
 import EmployeeStats from './pages/EmployeeStats';
-import Profile from './pages/Profile';
 
 const PrivateRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -41,14 +40,6 @@ function App() {
             element={
               <PrivateRoute>
                 <EmployeeStats />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/profile"
-            element={
-              <PrivateRoute>
-                <Profile />
               </PrivateRoute>
             }
           />
