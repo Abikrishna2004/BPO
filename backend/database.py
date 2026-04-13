@@ -1,19 +1,49 @@
+<<<<<<< HEAD
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
 SQLALCHEMY_DATABASE_URL = "sqlite:///./bpo_system.db"
+=======
+import os
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from pymongo import MongoClient
 
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
+class Settings(BaseSettings):
+    # This will read from .env if present
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding='utf-8', extra="ignore")
+
+    MONGODB_URL: str = ""
+    DATABASE_NAME: str = "BPO"
+    SECRET_KEY: str = "change-me-in-production"
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    CORS_ORIGINS: str = "*"
+>>>>>>> 6771d20fd1f9cc7b28e3f7d59b9c42e81905e20f
+
+import certifi
+import ssl
+
+settings = Settings()
+
+client = MongoClient(
+    settings.MONGODB_URL,
+    tls=True,
+    tlsCAFile=certifi.where(),
+    serverSelectionTimeoutMS=10000,
+    connectTimeoutMS=10000
 )
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+db = client[settings.DATABASE_NAME]
 
-Base = declarative_base()
+# Test connection once at module load level to surface errors immediately (if URL provided)
+if settings.MONGODB_URL:
+    try:
+        client.admin.command('ping')
+        print("MongoDB Atlas: Connection Successful")
+    except Exception as e:
+        print(f"MongoDB Atlas: Connection Failed on Startup: {e}")
+else:
+    print("MongoDB Atlas: URL NOT CONFIGURED (Check Environment Variables)")
 
 def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+    return db

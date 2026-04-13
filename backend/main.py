@@ -1,35 +1,42 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List
-import json
 import uvicorn
+from mangum import Mangum
 from contextlib import asynccontextmanager
-from database import engine, Base, get_db
-from sqlalchemy.orm import Session
-import models
+from database import get_db, client, settings
+from fastapi.staticfiles import StaticFiles
+import os
+import sys
 
-# Create Tables
-Base.metadata.create_all(bind=engine)
+# Path adjustment for Vercel monorepo deployments
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("Startup: BPO System Backend Initiated")
+    print("Startup: BPO System MongoDB Atlas Connection Initiated (PyMongo)")
+    print("--- REGISTERED ROUTES ---")
+    for route in app.routes:
+        print(f"ROUTE: {route.path} {getattr(route, 'methods', '')}")
+    print("-------------------------")
     yield
+    client.close()
     print("Shutdown: BPO System Backend Stopped")
 
 app = FastAPI(title="Jourvix BPO System", version="1.0.0", lifespan=lifespan)
 
-from fastapi.staticfiles import StaticFiles
-import os
-
-# Create uploads dir if not exists
-if not os.path.exists("uploads"):
-    os.makedirs("uploads")
+# Create uploads dir if not exists (handling potentially read-only serverless filesystems)
+try:
+    if not os.path.exists("uploads"):
+        os.makedirs("uploads")
+except Exception as e:
+    print(f"Warning: Could not create uploads directory: {e}")
 
 # CORS
+origins = settings.CORS_ORIGINS.split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -44,6 +51,10 @@ app.include_router(api_router, prefix="/api")
 # WebSocket Manager
 from websocket_manager import manager
 
+@app.get("/api/status")
+def api_status():
+    return {"status": "operational", "version": "1.0.1"}
+
 @app.get("/")
 def read_root():
     return {"message": "Welcome to Jourvix BPO Realtime System"}
@@ -54,11 +65,13 @@ async def websocket_endpoint(websocket: WebSocket):
     try:
         while True:
             data = await websocket.receive_text()
-            # Broadcast received message to all connected clients (Simulating real-time updates)
             await manager.broadcast(f"Realtime Update: {data}")
     except WebSocketDisconnect:
         manager.disconnect(websocket)
         await manager.broadcast("A client disconnected")
+
+# 👇 THIS is required for Vercel
+handler = Mangum(app)
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

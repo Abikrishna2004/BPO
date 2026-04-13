@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Layers, Clock, AlertCircle } from 'lucide-react';
-import axios from 'axios';
+import { useAuth } from '../context/AuthContext';
 
 const QueueItem = ({ name, active, waiting, sl }) => (
     <div className="glass-card p-6 flex flex-col gap-4 relative overflow-hidden">
@@ -35,11 +35,12 @@ const QueueItem = ({ name, active, waiting, sl }) => (
 
 const Queues = () => {
     const [queues, setQueues] = useState([]);
+    const { api } = useAuth();
 
     useEffect(() => {
         const fetchQueues = async () => {
             try {
-                const response = await axios.get('http://localhost:8000/api/queues');
+                const response = await api.get('/queues');
                 setQueues(response.data.map(q => ({
                     id: q._id,
                     name: q.name,

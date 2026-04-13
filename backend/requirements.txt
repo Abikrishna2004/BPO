@@ -1,9 +1,17 @@
 fastapi
 uvicorn
-sqlalchemy
+pymongo[srv]
+dnspython
 pydantic
+pydantic-settings
+email-validator
 python-multipart
 python-jose[cryptography]
 passlib[bcrypt]
 bcrypt==3.2.2
 websockets
+<<<<<<< HEAD
+=======
+mangum
+certifi
+>>>>>>> 6771d20fd1f9cc7b28e3f7d59b9c42e81905e20f
