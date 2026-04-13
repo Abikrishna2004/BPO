@@ -1,11 +1,7 @@
-<<<<<<< HEAD
-from fastapi import APIRouter, Depends, HTTPException, status
-from datetime import datetime
-from sqlalchemy.orm import Session
-=======
+
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from datetime import datetime, date as date_type, timedelta
->>>>>>> 6771d20fd1f9cc7b28e3f7d59b9c42e81905e20f
+
 from database import get_db
 import models
 import auth
@@ -13,13 +9,12 @@ from pydantic import BaseModel
 from typing import List, Optional
 from fastapi.security import OAuth2PasswordRequestForm
 import json
-<<<<<<< HEAD
-=======
+
 import shutil
 import os
 import uuid
 from bson import ObjectId
->>>>>>> 6771d20fd1f9cc7b28e3f7d59b9c42e81905e20f
+
 
 router = APIRouter()
 
@@ -27,83 +22,7 @@ router = APIRouter()
 def router_status():
     return {"status": "submodule_operational"}
 
-<<<<<<< HEAD
-def calculate_efficiency(db: Session, user_id: int) -> float:
-    # Base Score
-    base_score = 50.0
 
-    # 1. Attendance (Pos: +20 max, Neg: -5 per absent day)
-    total_days = db.query(models.Attendance).filter(models.Attendance.user_id == user_id).count()
-    present_days = db.query(models.Attendance).filter(models.Attendance.user_id == user_id, models.Attendance.status == 'present').count()
-    absent_days = db.query(models.Attendance).filter(models.Attendance.user_id == user_id, models.Attendance.status == 'absent').count()
-    
-    att_score = 0
-    if total_days > 0:
-        att_score = (present_days / total_days) * 20
-    
-    # Penalty: Heavy reduction for absence
-    att_penalty = absent_days * 5
-
-    # 2. Task Completion (Pos: +30 max, Neg: Late/Overdue)
-    c_tasks = db.query(models.Task).filter(models.Task.agent_id == user_id, models.Task.status == "completed").all()
-    p_tasks = db.query(models.Task).filter(models.Task.agent_id == user_id, models.Task.status == "pending").all()
-    
-    c_count = len(c_tasks)
-    p_count = len(p_tasks)
-    total_tasks = c_count + p_count
-    
-    task_score = 0
-    if total_tasks > 0:
-        task_score = (c_count / total_tasks) * 30
-
-    # Speed Bonus & Late Penalties
-    speed_bonus = 0
-    late_penalty = 0
-    
-    # Completed Tasks: Bonus for early, Penalty for late
-    for t in c_tasks:
-        if t.deadline and t.completed_at:
-            if t.completed_at < t.deadline:
-                # Early: +0.5 per hour
-                delta = t.deadline - t.completed_at
-                hours_saved = delta.total_seconds() / 3600
-                speed_bonus += hours_saved * 0.5
-            else:
-                # Late: -5 flat per late task
-                late_penalty += 5
-
-    # Pending Tasks: Penalty if overdue
-    now = datetime.now()
-    for t in p_tasks:
-        if t.deadline and t.deadline < now:
-            # Overdue: -10 flat (High negative impact)
-            late_penalty += 10
-
-    # 3. Achievements (Positive boost)
-    ach_count = db.query(models.Achievement).filter(models.Achievement.user_id == user_id).count()
-    ach_score = ach_count * 5 # Increased value
-
-    # 4. Call Effort (Active Time) (Max 20)
-    # Assumes 8hr shift per present day
-    calls = db.query(models.Call).filter(models.Call.agent_id == user_id, models.Call.status == "completed").all()
-    total_call_seconds = sum([(c.end_time - c.start_time).total_seconds() for c in calls if c.end_time and c.start_time])
-    expected_seconds = present_days * 8 * 3600
-    call_score = 0
-    if expected_seconds > 0:
-        call_score = (total_call_seconds / expected_seconds) * 20
-    
-    # Final Calculation
-    # Cap between 0 and 100 (or allow >100 for super performance?)
-    # User said "negative is high", implies it drops score.
-    
-    total_eff = base_score + att_score + task_score + speed_bonus + ach_score + call_score - att_penalty - late_penalty
-    
-    if total_eff < 0: total_eff = 0
-    # if total_eff > 100: total_eff = 100 # Allow > 100 to show 'super' efficiency? Let's cap at 100 for UI bars.
-    if total_eff > 100: total_eff = 100
-
-    return round(total_eff, 2)
-=======
 # Helper to serialize Mongo docs
 def fix_id(doc):
     if doc:
@@ -171,7 +90,7 @@ async def check_and_apply_automatic_promotion(db, user):
                 {"$set": {"role": next_role, "last_promotion_level": level_milestone}, "$inc": {"salary": 5000}}
             )
             await create_log(db, f"SYSTEM_AUTO_PROMO: {user['username']} promoted to {next_role.upper()} for reaching Efficiency {level_milestone}", user_id=str(user["_id"]))
->>>>>>> 6771d20fd1f9cc7b28e3f7d59b9c42e81905e20f
+
 
 class UserCreate(BaseModel):
     username: str
@@ -185,15 +104,7 @@ class UserResponse(BaseModel):
     display_name: Optional[str] = None
     role: str
     status: str
-<<<<<<< HEAD
-    performance_score: Optional[int] = 0
-    completed_tasks: Optional[int] = 0
-    pending_tasks: Optional[int] = 0
-    present_days: Optional[int] = 0
-    attendance_rate: Optional[float] = 0.0
-    efficiency: Optional[float] = 0.0
-    salary: Optional[float] = 0.0
-=======
+
     performance_score: int = 0
     completed_tasks: int = 0
     pending_tasks: int = 0
@@ -202,7 +113,7 @@ class UserResponse(BaseModel):
     efficiency: float = 0.0
     salary: float = 0.0
     profile_photo: Optional[str] = None
->>>>>>> 6771d20fd1f9cc7b28e3f7d59b9c42e81905e20f
+
     last_active: Optional[datetime] = None
 
 class UserPerformanceResponse(BaseModel):
@@ -215,15 +126,11 @@ class UserPerformanceResponse(BaseModel):
     efficiency: float
 
 class AttendanceResponse(BaseModel):
-<<<<<<< HEAD
-    id: int
-    user_id: int
-    date: date_type
-=======
+
     id: str
     user_id: str
     date: str
->>>>>>> 6771d20fd1f9cc7b28e3f7d59b9c42e81905e20f
+
     status: str
     marked_by: Optional[str] = None
 
@@ -241,24 +148,7 @@ async def create_log(db, message: str, user_id: Optional[str] = None):
     # Manager broadcast is still async (websocket based)
     await manager.broadcast(message)
 
-<<<<<<< HEAD
-# GET Logs Endpoint
-@router.get("/logs", response_model=List[LogResponse])
-def get_logs(user_id: Optional[int] = None, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
-    query = db.query(models.SystemLog)
-    
-    if current_user.role == "admin":
-        if user_id:
-            # Filter by specific user if requested
-            query = query.filter(models.SystemLog.user_id == user_id)
-        # Admin sees everything (limit 50)
-        return query.order_by(models.SystemLog.created_at.desc()).limit(50).all()
-    else:
-        # Employee sees global messages (user_id=None) OR their own messages
-        return query.filter(
-            (models.SystemLog.user_id == current_user.id) | (models.SystemLog.user_id == None)
-        ).order_by(models.SystemLog.created_at.desc()).limit(20).all()
-=======
+
 # Task response models
 class TaskResponse(BaseModel):
     id: str
@@ -270,7 +160,7 @@ class TaskResponse(BaseModel):
     completed_at: Optional[datetime] = None
     completion_notes: Optional[str] = None
     attachments: Optional[str] = None
->>>>>>> 6771d20fd1f9cc7b28e3f7d59b9c42e81905e20f
+
 
 @router.get("/logs", response_model=List[LogResponse])
 async def get_logs(user_id: Optional[str] = None, db = Depends(get_db), current_user = Depends(auth.get_current_user)):
@@ -292,13 +182,10 @@ async def submit_daily_report(report: dict, db = Depends(get_db), current_user =
     return {"message": "Daily report submitted"}
 
 @router.get("/dashboard/agents", response_model=List[UserResponse])
-<<<<<<< HEAD
-def get_agents_status(db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
-    if current_user.role == "agent":
-=======
+
 async def get_agents_status(db = Depends(get_db), current_user = Depends(auth.get_current_user)):
     if current_user["role"] == "agent":
->>>>>>> 6771d20fd1f9cc7b28e3f7d59b9c42e81905e20f
+
          raise HTTPException(status_code=403, detail="Forbidden")
     
     users = list(db.users.find({"_id": {"$ne": ObjectId(current_user["id"])}}))
@@ -334,15 +221,7 @@ async def get_agents_status(db = Depends(get_db), current_user = Depends(auth.ge
     return results
 
 @router.post("/register", response_model=UserResponse)
-<<<<<<< HEAD
-async def register(user: UserCreate, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
-    # Only Admin can create new users
-    if current_user.role != "admin":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to create users"
-        )
-=======
+
 async def register(user: UserCreate, db = Depends(get_db), current_user = Depends(auth.get_current_user)):
     if current_user["role"] != "admin": raise HTTPException(status_code=403)
     if db.users.find_one({"username": user.username}): raise HTTPException(status_code=400)
@@ -356,7 +235,7 @@ async def register(user: UserCreate, db = Depends(get_db), current_user = Depend
     new_user["_id"] = res.inserted_id
     await create_log(db, f"New Agent Registered: {user.username}", user_id=str(res.inserted_id))
     return fix_id(new_user)
->>>>>>> 6771d20fd1f9cc7b28e3f7d59b9c42e81905e20f
+
 
 @router.put("/users/profile", response_model=UserResponse)
 async def update_profile(data: dict, db = Depends(get_db), current_user = Depends(auth.get_current_user)):
@@ -369,45 +248,7 @@ async def update_profile(data: dict, db = Depends(get_db), current_user = Depend
     if update_data:
         db.users.update_one({"_id": ObjectId(u_id)}, {"$set": update_data})
     
-<<<<<<< HEAD
-    await create_log(db, f"New Agent Registered: {new_user.username}", user_id=new_user.id)
-    
-    return new_user
 
-@router.post("/token")
-async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    user = db.query(models.User).filter(models.User.username == form_data.username).first()
-    if not user or not auth.verify_password(form_data.password, user.hashed_password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-        
-    # Broadcast Login Event
-    if user.is_created:
-         await create_log(db, f"Agent Logged In: {user.username}", user_id=user.id)
-
-    access_token_expires = auth.timedelta(minutes=auth.ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = auth.create_access_token(
-        data={"sub": user.username, "role": user.role}, expires_delta=access_token_expires
-    )
-    return {"access_token": access_token, "token_type": "bearer"}
-
-@router.post("/attendance", response_model=AttendanceResponse)
-async def mark_attendance(att: AttendanceCreate, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Only Admins can mark attendance")
-    
-    today = datetime.now().date()
-    target_user = db.query(models.User).filter(models.User.id == att.user_id).first()
-    target_username = target_user.username if target_user else "Unknown"
-
-    existing = db.query(models.Attendance).filter(
-        models.Attendance.user_id == att.user_id,
-        models.Attendance.date == today
-    ).first()
-=======
     user = db.users.find_one({"_id": ObjectId(u_id)})
     user["id"] = str(user["_id"])
     return user
@@ -427,7 +268,7 @@ async def mark_attendance(att: dict, db = Depends(get_db), current_user = Depend
     today = datetime.now().strftime("%Y-%m-%d")
     target_user = db.users.find_one({"_id": ObjectId(att["user_id"])})
     if not target_user: raise HTTPException(status_code=404)
->>>>>>> 6771d20fd1f9cc7b28e3f7d59b9c42e81905e20f
+
     
     existing = db.attendance.find_one({"user_id": att["user_id"], "date": today})
     if existing:
@@ -478,27 +319,14 @@ async def get_me(db = Depends(get_db), current_user = Depends(auth.get_current_u
     eff = calculate_efficiency(db, u_id)
     
     return UserResponse(
-<<<<<<< HEAD
-        id=current_user.id,
-        username=current_user.username,
-        display_name=current_user.display_name,
-        role=current_user.role,
-        status=current_user.status,
-        performance_score=current_user.performance_score if current_user.performance_score else 0,
-        completed_tasks=c_tasks,
-        pending_tasks=p_tasks,
-        attendance_rate=rate,
-        efficiency=0.0,
-        salary=current_user.salary if current_user.salary is not None else 0.0,
-        last_active=None # Or implement last active logic
-=======
+
         id=u_id, username=current_user["username"], email=current_user.get("email"), display_name=current_user.get("display_name"),
         role=current_user["role"], status=current_user["status"], 
         performance_score=current_user.get("performance_score", 0),
         completed_tasks=c_tasks, pending_tasks=p_tasks, attendance_rate=rate,
         efficiency=eff, salary=current_user.get("salary", 0.0),
         profile_photo=current_user.get("profile_photo")
->>>>>>> 6771d20fd1f9cc7b28e3f7d59b9c42e81905e20f
+
     )
 
 @router.post("/calls/start")
@@ -516,43 +344,7 @@ async def end_call(call_id: str, notes: str, db = Depends(get_db), current_user 
     db.users.update_one({"_id": ObjectId(current_user["id"])}, {"$set": {"status": "available"}})
     return {"message": "Call ended"}
 
-<<<<<<< HEAD
-@router.get("/attendance", response_model=List[AttendanceResponse])
-def get_attendance(db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
-    today = datetime.now().date()
-    if current_user.role == "admin":
-        return db.query(models.Attendance).filter(models.Attendance.date == today).all()
-    else:
-        return db.query(models.Attendance).filter(
-            models.Attendance.user_id == current_user.id,
-            models.Attendance.date == today
-        ).all()
 
-@router.get("/attendance/history/{user_id}", response_model=List[AttendanceResponse])
-def get_attendance_history(user_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
-    today = datetime.now().date()
-    if current_user.role == "agent" and current_user.id != user_id:
-        raise HTTPException(status_code=403, detail="Not authorized")
-        
-    return db.query(models.Attendance).filter(models.Attendance.user_id == user_id).order_by(models.Attendance.date.desc()).limit(30).all()
-
-# User Management (Delete & Password)
-@router.delete("/users/{user_id}")
-def delete_user(user_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Not authorized")
-    
-    user = db.query(models.User).filter(models.User.id == user_id).first()
-    if not user:
-         raise HTTPException(status_code=404, detail="User not found")
-    
-    # Optional: Prevent deleting self or default admins if needed
-    if user.id == current_user.id:
-         raise HTTPException(status_code=400, detail="Cannot delete yourself")
-
-    db.delete(user)
-    db.commit()
-=======
 @router.get("/attendance")
 async def get_att(db = Depends(get_db), current_user = Depends(auth.get_current_user)):
     today = datetime.now().strftime("%Y-%m-%d")
@@ -564,7 +356,7 @@ async def get_att(db = Depends(get_db), current_user = Depends(auth.get_current_
 async def delete_user(user_id: str, db = Depends(get_db), current_user = Depends(auth.get_current_user)):
     if current_user["role"] != "admin": raise HTTPException(status_code=403)
     db.users.delete_one({"_id": ObjectId(user_id)})
->>>>>>> 6771d20fd1f9cc7b28e3f7d59b9c42e81905e20f
+
     return {"message": "User deleted"}
 
 @router.put("/users/{user_id}/promote")
@@ -575,27 +367,7 @@ async def promote_user(user_id: str, promo: dict, db = Depends(get_db), current_
     await create_log(db, f"SYSTEM_PROMO: {u['username']} rewarded - Salary: {u['salary']}, Role: {u['role']}", user_id=user_id)
     return {"message": "Success"}
 
-<<<<<<< HEAD
-class TaskResponse(BaseModel):
-    id: int
-    title: str
-    description: str
-    status: str
-    created_at: datetime
-    deadline: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
-    completion_notes: Optional[str] = None
-    attachments: Optional[str] = None # Added for response
 
-    class Config:
-        from_attributes = True
-
-# Task Routes
-@router.post("/tasks", response_model=TaskResponse)
-async def assign_task(task: TaskCreate, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Only Admins can assign tasks")
-=======
 @router.post("/tasks", response_model=TaskResponse)
 async def assign_task(task: dict, db = Depends(get_db), current_user = Depends(auth.get_current_user)):
     if current_user["role"] != "admin": raise HTTPException(status_code=403)
@@ -604,7 +376,7 @@ async def assign_task(task: dict, db = Depends(get_db), current_user = Depends(a
     new_task["created_at"] = datetime.now()
     # Ensure agent_id is stored as string for consistency across lookups
     new_task["agent_id"] = str(task.get("agent_id", ""))
->>>>>>> 6771d20fd1f9cc7b28e3f7d59b9c42e81905e20f
+
     
     res = db.tasks.insert_one(new_task)
     new_task["_id"] = res.inserted_id
@@ -618,39 +390,11 @@ async def assign_task(task: dict, db = Depends(get_db), current_user = Depends(a
     return fix_id(new_task)
 
 @router.get("/tasks/my", response_model=List[TaskResponse])
-<<<<<<< HEAD
-def get_my_tasks(db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
-    tasks = db.query(models.Task).filter(models.Task.agent_id == current_user.id).all()
-    print(f"DEBUG: get_my_tasks for {current_user.username} (ID: {current_user.id}) - Found {len(tasks)} tasks")
-    return tasks
 
-@router.get("/tasks/user/{user_id}", response_model=List[TaskResponse])
-def get_user_tasks(user_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
-    if current_user.role == "agent" and current_user.id != user_id:
-        raise HTTPException(status_code=403, detail="Not authorized")
-    tasks = db.query(models.Task).filter(models.Task.agent_id == user_id).order_by(models.Task.phase_num.asc(), models.Task.created_at.desc()).all()
-    print(f"DEBUG: get_user_tasks for user_id={user_id} requested by {current_user.username} - Found {len(tasks)} tasks")
-    try:
-        with open("admin_task_debug.txt", "a") as f:
-            f.write(f"Fetch by {current_user.username} for target {user_id} - Found {len(tasks)} tasks\n")
-    except Exception:
-        pass
-    return tasks
-
-class TaskCompletion(BaseModel):
-    notes: str
-    attachments: List[str] = []
-
-@router.put("/tasks/{task_id}/complete")
-async def complete_task(task_id: int, completion: TaskCompletion, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
-    task = db.query(models.Task).filter(models.Task.id == task_id, models.Task.agent_id == current_user.id).first()
-    if not task:
-        raise HTTPException(status_code=404, detail="Task not found")
-=======
 async def my_tasks(db = Depends(get_db), current_user = Depends(auth.get_current_user)):
     u_id = current_user["id"]
     u_name = current_user["username"]
->>>>>>> 6771d20fd1f9cc7b28e3f7d59b9c42e81905e20f
+
     
     # SYSTEM DIAGNOSTIC: Search for both ID and Username to catch mismatch
     query = {
@@ -662,238 +406,16 @@ async def my_tasks(db = Depends(get_db), current_user = Depends(auth.get_current
         "status": {"$ne": "deleted"}
     }
     
-<<<<<<< HEAD
-    # Calculate score update
-    score_change = 5
-    is_late = False
-    days_late = 0
 
-    # Determine applicable deadline (Task specific > Project specific)
-    deadline = task.deadline
-    if not deadline and task.project_id:
-        project = db.query(models.Project).filter(models.Project.id == task.project_id).first()
-        if project: deadline = project.deadline
-    
-    # Check deadline
-    if deadline and task.completed_at > deadline:
-        is_late = True
-        delta = task.completed_at - deadline
-        days_late = delta.days + 1 # At least 1 day late if passed
-        
-        # Penalty: -5 points per day late
-        penalty = days_late * 5 
-        score_change = -penalty 
-
-    # Update User Score
-    if current_user.performance_score is None:
-        current_user.performance_score = 0
-    
-    current_user.performance_score += score_change
-    
-    # Cap score at 100, floor at 0
-    if current_user.performance_score > 100: current_user.performance_score = 100
-    if current_user.performance_score < 0: current_user.performance_score = 0
-    
-    # Check for Bonus Eligibility (100%)
-    bonus_awarded = False
-    bonus_msg = ""
-    if current_user.performance_score == 100:
-        # Check if bonus already awarded this month
-        today = datetime.now()
-        start_of_month = datetime(today.year, today.month, 1)
-        
-        existing_bonus = db.query(models.Achievement).filter(
-            models.Achievement.user_id == current_user.id,
-            models.Achievement.type == "bonus", # or "increment"
-            models.Achievement.date_awarded >= start_of_month
-        ).first()
-        
-        if not existing_bonus:
-            # Award Bonus!
-            # Get settings
-            bonus_amount_setting = db.query(models.Setting).filter(models.Setting.key == "performance_bonus_amount").first()
-            bonus_amount = int(bonus_amount_setting.value) if bonus_amount_setting else 1000 # Default 1000
-            
-            new_achievement = models.Achievement(
-                user_id=current_user.id,
-                title="100% Performance Bonus",
-                description=f"Reached 100% Performance Score in {today.strftime('%B')}",
-                type="bonus",
-                amount=bonus_amount,
-                date_awarded=datetime.now()
-            )
-            db.add(new_achievement)
-            bonus_awarded = True
-            bonus_msg = f" (BONUS AWARDED: ${bonus_amount})"
-            
-            # Log Promotion Eligibility?
-            # User mentioned "promotion everything". Maybe trigger an alert?
-            await create_log(db, f"ACHIEVEMENT: {current_user.username} reached 100% Performance! Bonus Awarded.", user_id=None) # Broadcast to all/admin
-
-    db.commit()
-
-    log_msg = f"Task Complete: {current_user.username} finished '{task.title}'"
-    if is_late:
-        log_msg += f" (LATE {days_late} DAYS! {score_change} XP)"
-    else:
-        log_msg += f" (+5 XP){bonus_msg}"
-
-    await create_log(db, log_msg, user_id=current_user.id)
-    return {"message": "Task completed" + bonus_msg}
-
-@router.get("/performance/{user_id}", response_model=UserPerformanceResponse)
-def get_performance(user_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
-    # Security: Only Admin or Self can view
-    if current_user.role != "admin" and current_user.id != user_id:
-        raise HTTPException(status_code=403, detail="Not authorized")
-    
-    target = db.query(models.User).filter(models.User.id == user_id).first()
-    if not target:
-        raise HTTPException(status_code=404, detail="User not found")
-        
-    tasks_done = db.query(models.Task).filter(models.Task.agent_id == user_id, models.Task.status == "completed").count()
-    tasks_pending = db.query(models.Task).filter(models.Task.agent_id == user_id, models.Task.status == "pending").count()
-    
-    today = datetime.now().date()
-    
-    # Correct attendance rate calculation
-    total_days_marked = db.query(models.Attendance).filter(models.Attendance.user_id == user_id).count()
-    days_present = db.query(models.Attendance).filter(models.Attendance.user_id == user_id, models.Attendance.status == 'present').count()
-    
-    rate = 0.0
-    if total_days_marked > 0:
-        rate = round((days_present / total_days_marked) * 100, 1)
-
-    eff = calculate_efficiency(db, user_id)
-    
-    return UserPerformanceResponse(
-        username=target.username,
-        salary=target.salary,
-        performance_score=target.performance_score,
-        completed_tasks=tasks_done,
-        pending_tasks=tasks_pending,
-        attendance_rate=rate,
-        efficiency=eff
-    )
-
-class HistoryTask(BaseModel):
-    title: str
-    project_title: Optional[str] = None
-    status: str
-
-class HistoryPoint(BaseModel):
-    date: str
-    tasks: int
-    task_titles: List[str] # Keep for backward compat if needed, or remove
-    task_details: List[HistoryTask]
-    attendance: str # "present", "absent", "no_record"
-
-@router.get("/performance/{user_id}/history", response_model=List[HistoryPoint])
-def get_performance_history(user_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
-    # Last 30 days logic optimized
-    history = []
-    today = datetime.now().date()
-    start_date = today - timedelta(days=29)
-    
-    # Fetch all tasks in range (completed)
-    # Note: completed_at is datetime, we filter broadly then process
-    tasks = db.query(models.Task).filter(
-        models.Task.agent_id == user_id,
-        models.Task.status == "completed",
-        models.Task.completed_at >= start_date # Simple filter, fine if mixed tz, we refine below
-    ).all()
-    
-    # Fetch all attendance in range
-    attendance_records = db.query(models.Attendance).filter(
-        models.Attendance.user_id == user_id,
-        models.Attendance.date >= start_date
-    ).all()
-    
-    att_map = {rec.date: rec.status for rec in attendance_records}
-    
-    # Get User Creation Date safely
-    target_user = db.query(models.User).filter(models.User.id == user_id).first()
-    creation_date = start_date
-    try:
-        if target_user and target_user.created_at:
-            if isinstance(target_user.created_at, str):
-                from dateutil import parser
-                creation_date = parser.parse(target_user.created_at).date()
-            else:
-                creation_date = getattr(target_user.created_at, 'date', lambda: target_user.created_at)()
-    except Exception as e:
-        print(f"Error parsing creation date: {e}")
-
-    # Iterate backwards 30 days
-    try:
-        for i in range(29, -1, -1):
-            day = today - timedelta(days=i)
-            
-            # Skip if day is before creation date
-            if day < creation_date:
-                continue
-            
-            # Filter tasks for this day (local date match)
-            day_tasks = []
-            for t in tasks:
-                # Add safety for completed_at
-                try:
-                    c_date = None
-                    if t.completed_at:
-                        if isinstance(t.completed_at, str):
-                            from dateutil import parser
-                            c_date = parser.parse(t.completed_at).date()
-                        else:
-                            c_date = getattr(t.completed_at, 'date', lambda: t.completed_at)()
-                    
-                    if c_date == day:
-                        p_title = None
-                        if t.project_id:
-                            if t.project_relation:
-                                p_title = t.project_relation.title
-                        
-                        # Safe handling for title/status
-                        safe_title = t.title if t.title else "Untitled Task"
-                        safe_status = t.status if t.status else "completed"
-
-                        day_tasks.append(HistoryTask(
-                            title=safe_title,
-                            project_title=p_title,
-                            status=safe_status
-                        ))
-                except Exception as e:
-                    print(f"Error filtering tasks for day {day}: {e}")
-            
-            att_status = att_map.get(day, "no_record")
-            
-            # Debug match
-            if att_status != "no_record":
-               print(f"DEBUG: Found attendance for {day}: {att_status}")
-            
-            history.append(HistoryPoint(
-                date=day.strftime("%b %d (%a)"), 
-                tasks=len(day_tasks),
-                task_titles=[t.title for t in day_tasks],
-                task_details=day_tasks,
-                attendance=att_status
-            ))
-            
-        return history
-=======
     try:
         tasks = list(db.tasks.find(query).sort("created_at", -1))
         return fix_ids(tasks)
->>>>>>> 6771d20fd1f9cc7b28e3f7d59b9c42e81905e20f
+
     except Exception as e:
         print(f"TASK FETCH ERROR: {e}")
         return []
 
-<<<<<<< HEAD
-@router.put("/users/{user_id}/password")
-def update_password(user_id: int, pw: PasswordUpdate, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Not authorized")
-=======
+
 @router.get("/tasks/user/{user_id}", response_model=List[TaskResponse])
 async def user_tasks(user_id: str, db = Depends(get_db), current_user = Depends(auth.get_current_user)):
     query = {"$or": [{"agent_id": user_id}, {"agent_id": ObjectId(user_id)}]}
@@ -903,7 +425,7 @@ async def user_tasks(user_id: str, db = Depends(get_db), current_user = Depends(
 async def finish_task(task_id: str, completion: dict, db = Depends(get_db), current_user = Depends(auth.get_current_user)):
     task = db.tasks.find_one({"_id": ObjectId(task_id)})
     if not task: raise HTTPException(status_code=404)
->>>>>>> 6771d20fd1f9cc7b28e3f7d59b9c42e81905e20f
+
     
     now = datetime.now()
     xp_gain = 3 # New requirement: +3 XP per task
@@ -926,22 +448,9 @@ async def finish_task(task_id: str, completion: dict, db = Depends(get_db), curr
                  "attachments": json.dumps(completion.get("attachments", []))}
     })
     
-<<<<<<< HEAD
-    class Config:
-        from_attributes = True
 
-class ProjectCreate(BaseModel):
-    title: str
-    description: str
-    deadline: Optional[datetime] = None
-
-@router.post("/projects", response_model=ProjectResponse)
-def create_project(project: ProjectCreate, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Not authorized")
-=======
     db.users.update_one({"_id": ObjectId(current_user["id"])}, {"$inc": {"performance_score": xp_gain}})
->>>>>>> 6771d20fd1f9cc7b28e3f7d59b9c42e81905e20f
+
     
     # Re-fetch user explicitly to check for auto-promotion
     updated_user = db.users.find_one({"_id": ObjectId(current_user["id"])})
@@ -951,98 +460,7 @@ def create_project(project: ProjectCreate, db: Session = Depends(get_db), curren
     await create_log(db, f"Task {status_msg}: {current_user['username']} finished '{task['title']}' ({xp_gain} XP)", user_id=current_user["id"])
     return {"message": "Task completed", "xp_gain": xp_gain}
 
-<<<<<<< HEAD
-    db.commit()
-    
-    return {"message": f"Assigned {len(created_tasks)} tasks across {len(assignment.agent_ids)} agents for project {project.title}"}
 
-
-# Achievements & Settings Endpoints
-# ---------------------------------
-
-class AchievementResponse(BaseModel):
-    id: int
-    user_id: int
-    title: str
-    description: str
-    type: str # "bonus", "increment", "promotion"
-    amount: Optional[int]
-    date_awarded: datetime
-
-    class Config:
-        from_attributes = True
-
-@router.get("/users/{user_id}/achievements", response_model=List[AchievementResponse])
-def get_user_achievements(user_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
-    if current_user.role != "admin" and current_user.id != user_id:
-        raise HTTPException(status_code=403, detail="Not authorized")
-    return db.query(models.Achievement).filter(models.Achievement.user_id == user_id).order_by(models.Achievement.date_awarded.desc()).all()
-
-@router.put("/users/{user_id}/role")
-def update_user_role(user_id: int, role_data: dict, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
-    # Simple admin check
-    if current_user.role != "admin" and current_user.username != "Admin@CJ":
-        raise HTTPException(status_code=403, detail="Not authorized")
-    
-    user = db.query(models.User).filter(models.User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-        
-    new_role = role_data.get("role")
-    if new_role:
-        user.role = new_role
-        db.commit()
-    
-    return {"message": "Role updated", "role": user.role}
-
-@router.put("/users/{user_id}/salary")
-def update_user_salary(user_id: int, data: SalaryUpdate, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Not authorized")
-    
-    user = db.query(models.User).filter(models.User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-        
-    user.salary = data.salary
-    db.commit()
-    
-    return {"message": "Salary updated", "salary": user.salary}
-
-class SettingResponse(BaseModel):
-    key: str
-    value: str
-    class Config: 
-        from_attributes = True
-
-class SettingUpdate(BaseModel):
-    key: str
-    value: str
-
-@router.get("/settings", response_model=List[SettingResponse])
-def get_settings(db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Not authorized")
-    return db.query(models.Setting).all()
-
-@router.post("/settings", response_model=SettingResponse)
-def update_setting(setting: SettingUpdate, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Not authorized")
-    
-    existing = db.query(models.Setting).filter(models.Setting.key == setting.key).first()
-    if existing:
-        existing.value = setting.value
-        db.commit()
-        db.refresh(existing)
-        return existing
-    else:
-        new_setting = models.Setting(key=setting.key, value=setting.value)
-        db.add(new_setting)
-        db.commit()
-        db.refresh(new_setting)
-        return new_setting
-=======
 @router.get("/performance/{user_id}", response_model=UserPerformanceResponse)
 async def get_perf(user_id: str, db = Depends(get_db), current_user = Depends(auth.get_current_user)):
     user = db.users.find_one({"_id": ObjectId(user_id)})
@@ -1077,4 +495,4 @@ def get_set(db = Depends(get_db)):
 async def set_set(data: dict, db = Depends(get_db)):
     db.settings.update_one({"key": data["key"]}, {"$set": {"value": data["value"]}}, upsert=True)
     return {"message": "Updated"}
->>>>>>> 6771d20fd1f9cc7b28e3f7d59b9c42e81905e20f
+

@@ -14,27 +14,32 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     CORS_ORIGINS: str = "*"
-
 settings = Settings()
 
-client = MongoClient(
-    settings.MONGODB_URL,
-    tls=True,
-    tlsCAFile=certifi.where(),
-    serverSelectionTimeoutMS=10000,
-    connectTimeoutMS=10000
-)
-db = client[settings.DATABASE_NAME]
+client = None
+db = None
 
-# Test connection once at module load level to surface errors immediately (if URL provided)
 if settings.MONGODB_URL:
     try:
+        client = MongoClient(
+            settings.MONGODB_URL,
+            tls=True,
+            tlsCAFile=certifi.where(),
+            serverSelectionTimeoutMS=10000,
+            connectTimeoutMS=10000
+        )
+        db = client[settings.DATABASE_NAME]
+        
+        # Test connection
         client.admin.command('ping')
         print("MongoDB Atlas: Connection Successful")
     except Exception as e:
         print(f"MongoDB Atlas: Connection Failed on Startup: {e}")
+        db = None
 else:
-    print("MongoDB Atlas: URL NOT CONFIGURED (Check Environment Variables)")
+    print("MongoDB Atlas: URL NOT CONFIGURED (Check .env for MONGODB_URL)")
 
 def get_db():
+    if db is None:
+        raise Exception("Database not initialized. Please configure MONGODB_URL in .env")
     return db

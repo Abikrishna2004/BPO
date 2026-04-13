@@ -20,7 +20,8 @@ async def lifespan(app: FastAPI):
         print(f"ROUTE: {route.path} {getattr(route, 'methods', '')}")
     print("-------------------------")
     yield
-    client.close()
+    if client:
+        client.close()
     print("Shutdown: BPO System Backend Stopped")
 
 app = FastAPI(title="Jourvix BPO System", version="1.0.0", lifespan=lifespan)

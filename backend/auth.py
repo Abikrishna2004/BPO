@@ -4,23 +4,14 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-<<<<<<< HEAD
-from sqlalchemy.orm import Session
-from database import get_db
-import models
 
-# Secret key (should be in env file in production)
-SECRET_KEY = "supersecretkeywhichshouldbechanged"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
-=======
 from database import get_db, settings
 
 # Secret key (should be in env file in production)
 SECRET_KEY = settings.SECRET_KEY
 ALGORITHM = settings.ALGORITHM
 ACCESS_TOKEN_EXPIRE_MINUTES = settings.ACCESS_TOKEN_EXPIRE_MINUTES
->>>>>>> 6771d20fd1f9cc7b28e3f7d59b9c42e81905e20f
+
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/token")
