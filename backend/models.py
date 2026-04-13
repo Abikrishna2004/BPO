@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field, EmailStr
 from typing import List, Optional
-from datetime import datetime, date
+from datetime import datetime
 import enum
 
 class UserRole(str, enum.Enum):
@@ -26,24 +26,6 @@ class User(BaseModel):
     display_name: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.now)
 
-<<<<<<< HEAD
-    id = Column(Integer, primary_key=True, index=True)
-    username = Column(String, unique=True, index=True)
-    email = Column(String, unique=True, index=True)
-    hashed_password = Column(String)
-    role = Column(String, default=UserRole.AGENT)
-    status = Column(String, default=AgentStatus.OFFLINE) # For agents mainly
-    is_created = Column(Boolean, default=False) # True for manually created agents
-    salary = Column(Integer, default=50000) # Base salary
-    performance_score = Column(Integer, default=0) # 0-100
-    display_name = Column(String, default=None)
-    created_at = Column(DateTime, default=datetime.now)
-    
-    calls = relationship("Call", back_populates="agent")
-    attendance = relationship("Attendance", back_populates="user")
-    tasks = relationship("Task", back_populates="agent")
-    achievements = relationship("Achievement", back_populates="user")
-=======
 class Task(BaseModel):
     title: str
     description: str
@@ -83,7 +65,6 @@ class SystemLog(BaseModel):
     message: str
     user_id: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.now)
->>>>>>> 6771d20fd1f9cc7b28e3f7d59b9c42e81905e20f
 
 class Achievement(BaseModel):
     user_id: str

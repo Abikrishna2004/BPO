@@ -1,13 +1,8 @@
-<<<<<<< HEAD
-from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
-
-SQLALCHEMY_DATABASE_URL = "sqlite:///./bpo_system.db"
-=======
 import os
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pymongo import MongoClient
+import certifi
+import ssl
 
 class Settings(BaseSettings):
     # This will read from .env if present
@@ -19,10 +14,6 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     CORS_ORIGINS: str = "*"
->>>>>>> 6771d20fd1f9cc7b28e3f7d59b9c42e81905e20f
-
-import certifi
-import ssl
 
 settings = Settings()
 
