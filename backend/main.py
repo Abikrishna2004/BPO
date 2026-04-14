@@ -34,7 +34,24 @@ except Exception as e:
     print(f"Warning: Could not create uploads directory: {e}")
 
 # CORS
-origins = settings.CORS_ORIGINS.split(",")
+default_origins = [
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "https://jourvix-prime.web.app",
+    "https://jourvix-3b55d.web.app",
+    "https://jourvix-3b55d.firebaseapp.com"
+]
+
+if settings.CORS_ORIGINS and settings.CORS_ORIGINS != "*":
+    origins = [o.strip() for o in settings.CORS_ORIGINS.split(",")]
+    # Add defaults if not present
+    for d in default_origins:
+        if d not in origins:
+            origins.append(d)
+elif settings.CORS_ORIGINS == "*":
+    origins = ["*"]
+else:
+    origins = default_origins
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
