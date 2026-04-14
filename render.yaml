@@ -6,8 +6,10 @@ services:
     buildCommand: pip install -r backend/requirements.txt
     startCommand: cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
-      - key: DATABASE_URL
-        value: sqlite:///./bpo_system.db # Note: SQLite will reset on restart on Render's free tier. Use a managed DB for persistence.
+      - key: MONGODB_URL
+        sync: true
+      - key: DATABASE_NAME
+        value: BPO
       - fromGroup: bpo-secrets
 
   # Frontend Static Site
