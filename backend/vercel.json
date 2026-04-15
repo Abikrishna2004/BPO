@@ -8,6 +8,14 @@
   ],
   "routes": [
     {
+      "src": "/api/(.*)",
+      "destination": "main.py"
+    },
+    {
+      "src": "/ws",
+      "destination": "main.py"
+    },
+    {
       "src": "/(.*)",
       "destination": "main.py"
     }

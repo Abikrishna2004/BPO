@@ -33,19 +33,30 @@ try:
 except Exception as e:
     print(f"Warning: Could not create uploads directory: {e}")
 
-# CORS - Explicitly listing production domains (Wildcards not allowed with credentials)
+# CORS configuration
+# Explicitly listing domains because 'allow_origins=["*"]' is not compatible with 'allow_credentials=True'
+origins = [
+    "https://jourvix-prime.web.app",
+    "https://jourvix-3b55d.web.app",
+    "https://jourvix-3b55d.firebaseapp.com",
+    "http://localhost:5173",
+    "http://localhost:3000"
+]
+
+# Dynamically add origin from settings if provided
+if settings.CORS_ORIGINS and settings.CORS_ORIGINS != "*":
+    settings_origins = [o.strip() for o in settings.CORS_ORIGINS.split(",")]
+    for o in settings_origins:
+        if o not in origins:
+            origins.append(o)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://jourvix-prime.web.app",
-        "https://jourvix-3b55d.web.app",
-        "https://jourvix-3b55d.firebaseapp.com",
-        "http://localhost:5173",
-        "http://localhost:3000"
-    ],
+    allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
+    expose_headers=["*"],
     max_age=3600,
 )
 
